@@ -2,24 +2,32 @@ import { useEffect } from 'react';
 import { useGameStore } from './useGameStore';
 
 export function GameWorld() {
-  const { gameState, saveGame, saveStatus, lastSavedAt, isSaving } = useGameStore();
+  const { gameState, playerProfile, saveGame, saveStatus, lastSavedAt, isSaving } = useGameStore();
 
   useEffect(() => {
+    if (!playerProfile) return;
     const interval = window.setInterval(() => {
       void saveGame();
     }, 3000);
 
     return () => window.clearInterval(interval);
-  }, [saveGame]);
+  }, [saveGame, playerProfile]);
+
+  if (!playerProfile) {
+    return null;
+  }
 
   return (
     <section style={{ padding: '1.5rem', borderRadius: 16, background: 'rgba(255,255,255,0.05)', position: 'relative' }}>
       <h2>Land-Orion World</h2>
-      <p>Welcome to the Land-Orion game environment. The core systems are now live for player persistence and future expansion.</p>
+      <p>Welcome back, {playerProfile.username}.</p>
       <ul>
         <li>Current mission: {gameState?.progress.currentMissionId ?? 'None'}</li>
-        <li>Inventory foundation: {gameState?.inventory.map((item) => item.name).join(', ') ?? 'Empty'}</li>
-        <li>Resources: {gameState ? Object.entries(gameState.resources).map(([key, value]) => `${key}: ${value}`).join(', ') : 'None'}</li>
+        <li>Inventory: {gameState?.inventory.length ? gameState.inventory.map((item) => `${item.name} (x${item.quantity})`).join(', ') : 'Empty'}</li>
+        <li>Resources: {gameState && Object.keys(gameState.resources).length ? Object.entries(gameState.resources).map(([key, value]) => `${key}: ${value}`).join(', ') : 'None'}</li>
+        <li>Currency: {gameState && Object.keys(gameState.currency).length ? Object.entries(gameState.currency).map(([key, value]) => `${key}: ${value}`).join(', ') : 'None'}</li>
+        <li>Land plots: {playerProfile.land.length}</li>
+        <li>Buildings: {playerProfile.land.flatMap((plot) => plot.buildings).length}</li>
       </ul>
 
       <div style={{ marginTop: '1rem', color: '#8fb5ff' }}>

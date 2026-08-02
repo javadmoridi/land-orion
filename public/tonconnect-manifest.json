@@ -1,7 +1,7 @@
 {
-  "url": "https://land-orion.local",
+  "url": "https://land-orion.vercel.app",
   "name": "Land-Orion",
-  "iconUrl": "https://land-orion.local/icon.png",
-  "termsOfUseUrl": "https://land-orion.local/terms",
-  "privacyPolicyUrl": "https://land-orion.local/privacy"
+  "iconUrl": "https://land-orion.vercel.app/icon.png",
+  "termsOfUseUrl": "https://land-orion.vercel.app/terms",
+  "privacyPolicyUrl": "https://land-orion.vercel.app/privacy"
 }

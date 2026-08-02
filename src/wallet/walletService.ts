@@ -1,6 +1,14 @@
-import type { WalletAddress, WalletSession } from '../types';
+import type { WalletSession, WalletAddress } from '../types';
 
-export const TON_CONNECT_ONLY = 'ton-connect';
+export const TON_CONNECT_ONLY = 'ton-connect' as const;
+export const MANIFEST_URL = '/tonconnect-manifest.json';
+
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
+
+export interface WalletConnectionState {
+  status: ConnectionStatus;
+  session: WalletSession | null;
+}
 
 export function createWalletSession(address: WalletAddress): WalletSession {
   return {
@@ -16,5 +24,16 @@ export function formatWalletAddress(address: WalletAddress): string {
 }
 
 export function isTonAddress(address: WalletAddress): boolean {
-  return address.length > 20 && address.startsWith('0x');
+  // TON addresses are either raw "0:<hex>" (67 chars) or user-friendly
+  // base64url addresses starting with EQ/EQ... (48 chars).
+  if (!address) return false;
+  if (address.startsWith('0:') && address.length === 67) return true;
+  return /^[A-Za-z0-9_-]{48}$/.test(address);
+}
+
+export function getConnectionStatus(session: WalletSession | null, isConnectionRestored: boolean): ConnectionStatus {
+  if (session) {
+    return isConnectionRestored ? 'connected' : 'reconnecting';
+  }
+  return 'disconnected';
 }

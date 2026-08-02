@@ -1,38 +1,150 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
+import { TonConnectButton, useTonAddress, useTonWallet, useIsConnectionRestored, useTonConnectUI } from '@tonconnect/ui-react';
 import { useGameStore } from '../game/useGameStore';
-import { createWalletSession } from './walletService';
+import { createWalletSession, formatWalletAddress } from './walletService';
+
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        ready: () => void;
+        expand: () => void;
+        initDataUnsafe?: {
+          user?: {
+            id?: number;
+            first_name?: string;
+            last_name?: string;
+            username?: string;
+          };
+        };
+      };
+    };
+  }
+}
+
+// Replace this file to change the wallet screen background:
+// public/assets/wallet-background.svg
+export const WALLET_BACKGROUND = '/assets/wallet-background.svg';
 
 export function WalletConnectionScreen() {
-  const { connectWallet } = useGameStore();
-  const [address, setAddress] = useState('');
-  const [status, setStatus] = useState('Enter a TON wallet address to enter Land-Orion.');
+  const userFriendlyAddress = useTonAddress();
+  const rawAddress = useTonAddress(false);
+  const wallet = useTonWallet();
+  const connectionRestored = useIsConnectionRestored();
+  const [tonConnectUI] = useTonConnectUI();
 
-  const handleConnect = async () => {
-    if (!address.trim()) {
-      setStatus('Please provide a TON wallet address.');
-      return;
+  const { connectWallet, wallet: session, connectionStatus, error } = useGameStore();
+
+  // Telegram Mini App support: notify Telegram that the web app is ready and expand.
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
     }
+  }, []);
 
-    const session = createWalletSession(address.trim());
-    setStatus(`Connecting to TON wallet ${session.address.slice(0, 8)}...`);
-    await connectWallet(session);
-    setStatus('Connected. Loading your player profile and entering the game world.');
-  };
+  useEffect(() => {
+    tonConnectUI.setConnectRequestParameters({ state: 'ready', value: { tonProof: 'land-orion-v1' } });
+  }, [tonConnectUI]);
+
+  useEffect(() => {
+    if (!connectionRestored || !wallet) return;
+
+    const address = userFriendlyAddress || rawAddress;
+    if (!address) return;
+
+    const walletSession = createWalletSession(address);
+    void connectWallet(walletSession);
+  }, [connectionRestored, wallet, userFriendlyAddress, rawAddress, connectWallet]);
+
+  if (!connectionRestored) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundImage: `url(${WALLET_BACKGROUND})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        <p style={{ color: '#8fb5ff', fontSize: '1.1rem' }}>Restoring connection...</p>
+      </div>
+    );
+  }
 
   return (
-    <section style={{ maxWidth: 560, margin: '0 auto', padding: '2rem', border: '1px solid #2c3e5a', borderRadius: 16, background: 'rgba(255,255,255,0.04)' }}>
-      <h2>Connect TON Wallet</h2>
-      <p>Only TON-compatible wallet flow is used. No EVM, no MetaMask.</p>
-      <input
-        value={address}
-        onChange={(event) => setAddress(event.target.value)}
-        placeholder="Enter TON wallet address"
-        style={{ width: '100%', padding: '0.8rem', borderRadius: 10, border: '1px solid #4d5f80', marginBottom: '1rem' }}
-      />
-      <button onClick={() => void handleConnect()} style={{ padding: '0.8rem 1.2rem', borderRadius: 10, border: 'none', background: '#4f7cff', color: 'white' }}>
-        Enter Land-Orion
-      </button>
-      <p style={{ marginTop: '1rem', color: '#8fb5ff' }}>{status}</p>
-    </section>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundImage: `url(${WALLET_BACKGROUND})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        padding: '1.5rem',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 420,
+          width: '100%',
+          padding: '2.5rem 2rem',
+          borderRadius: 24,
+          background: 'rgba(10, 14, 26, 0.85)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(79, 124, 255, 0.3)',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ marginBottom: '1rem' }}>
+          <span style={{ fontSize: '2.5rem' }}>🌌</span>
+        </div>
+        <h1 style={{ margin: 0, fontSize: '2rem', letterSpacing: '0.05em', color: '#ffffff' }}>LAND-ORION</h1>
+        <p style={{ marginTop: '0.5rem', marginBottom: '1.5rem', color: '#8fb5ff', fontSize: '0.95rem' }}>
+          Enter the world of Orion
+        </p>
+
+        <div style={{ margin: '2rem 0', display: 'flex', justifyContent: 'center' }}>
+          <TonConnectButton />
+        </div>
+
+        {connectionStatus === 'connecting' && (
+          <p style={{ color: '#8fb5ff' }}>Connecting wallet... searching player profile in Supabase.</p>
+        )}
+
+        {connectionStatus === 'connected' && session && (
+          <div style={{ marginTop: '1rem' }}>
+            <p>Connected: {formatWalletAddress(session.address)}</p>
+            <p style={{ color: '#32c787' }}>Player profile loaded. Entering the game world...</p>
+          </div>
+        )}
+
+        {error && (
+          <div
+            style={{
+              marginTop: '1rem',
+              padding: '0.75rem',
+              borderRadius: 10,
+              background: 'rgba(255,80,80,0.1)',
+              border: '1px solid rgba(255,80,80,0.4)',
+            }}
+          >
+            <p style={{ color: '#ff6b6b', fontSize: '0.9rem' }}>{error}</p>
+          </div>
+        )}
+
+        <p style={{ marginTop: '1.5rem', fontSize: '0.8rem', color: '#6b7c99' }}>
+          Connect via the official TON Connect modal to enter Land-Orion.
+        </p>
+      </div>
+    </div>
   );
 }
