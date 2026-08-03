@@ -26,6 +26,8 @@ export function PlayerIsland({ level }: PlayerIslandProps) {
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1,
+        width: '100%',
+        height: '100%',
       }}
     >
       <img
@@ -33,14 +35,19 @@ export function PlayerIsland({ level }: PlayerIslandProps) {
         alt="Player Island"
         draggable={false}
         style={{
-          maxWidth: '90vw',
-          maxHeight: '70vh',
+          // Keep aspect ratio, never stretch
           width: 'auto',
           height: 'auto',
+          maxWidth: '90vw',
+          maxHeight: '70vh',
+          objectFit: 'contain',
+          // Scale via transform but keep it inside the viewport
           transform: `scale(${scale})`,
+          transformOrigin: 'center center',
           imageRendering: 'pixelated',
           userSelect: 'none',
           pointerEvents: 'none',
+          display: 'block',
         }}
       />
     </div>
