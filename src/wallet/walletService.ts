@@ -1,7 +1,13 @@
 import type { WalletSession, WalletAddress } from '../types';
 
 export const TON_CONNECT_ONLY = 'ton-connect' as const;
-export const MANIFEST_URL = '/tonconnect-manifest.json';
+
+// TON Connect requires an absolute URL to the manifest.
+// Build it from the current origin so it works in dev and production.
+export const MANIFEST_URL =
+  typeof window !== 'undefined'
+    ? `${window.location.origin}/tonconnect-manifest.json`
+    : '/tonconnect-manifest.json';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
