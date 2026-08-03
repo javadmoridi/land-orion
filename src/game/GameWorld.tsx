@@ -6,6 +6,7 @@ import { PlayerIsland } from './PlayerIsland';
 export function GameWorld() {
   const {
     playerProfile,
+    gameState,
     saveGame,
     movePlayer,
   } = useGameStore();
@@ -79,7 +80,11 @@ export function GameWorld() {
           padding: '1rem',
         }}
       >
-        <PlayerIsland level={playerProfile.level} />
+        <PlayerIsland
+          level={playerProfile.level}
+          resources={gameState?.resources ?? {}}
+          inventory={gameState?.inventory.map((item) => ({ id: item.id, quantity: item.quantity })) ?? []}
+        />
       </div>
     </div>
   );
