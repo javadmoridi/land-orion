@@ -1,0 +1,201 @@
+/* ============================================
+   Land-Orion Living Background
+   Pure CSS animations – no heavy libraries
+   ============================================ */
+
+.orion-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 20% 20%, #1a0b2e 0%, #0d0a1a 40%, #05030a 100%);
+  z-index: 0;
+}
+
+/* ---------- Nebula clouds ---------- */
+.orion-nebula {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.35;
+  animation: nebula-drift 30s ease-in-out infinite alternate;
+}
+
+.orion-nebula-1 {
+  width: 500px;
+  height: 300px;
+  top: 10%;
+  left: 5%;
+  background: radial-gradient(circle, rgba(120, 40, 200, 0.6), transparent 70%);
+}
+
+.orion-nebula-2 {
+  width: 400px;
+  height: 250px;
+  bottom: 20%;
+  right: 10%;
+  background: radial-gradient(circle, rgba(255, 100, 50, 0.4), transparent 70%);
+  animation-delay: -10s;
+}
+
+.orion-nebula-3 {
+  width: 350px;
+  height: 200px;
+  top: 50%;
+  left: 50%;
+  background: radial-gradient(circle, rgba(50, 150, 255, 0.3), transparent 70%);
+  animation-delay: -20s;
+}
+
+@keyframes nebula-drift {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(40px, -30px) scale(1.15); }
+}
+
+/* ---------- Stars ---------- */
+.orion-stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, #fff, transparent),
+    radial-gradient(1px 1px at 80px 120px, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 150px 50px, #ffd, transparent),
+    radial-gradient(1px 1px at 250px 180px, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 320px 90px, #cff, transparent),
+    radial-gradient(1px 1px at 400px 220px, #fff, transparent),
+    radial-gradient(1px 1px at 480px 140px, #ffd, transparent),
+    radial-gradient(1.5px 1.5px at 550px 30px, #fff, transparent),
+    radial-gradient(1px 1px at 620px 200px, #cff, transparent),
+    radial-gradient(1px 1px at 700px 100px, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 760px 250px, #ffd, transparent),
+    radial-gradient(1px 1px at 820px 60px, #fff, transparent),
+    radial-gradient(1px 1px at 900px 170px, #cff, transparent),
+    radial-gradient(1.5px 1.5px at 960px 120px, #fff, transparent),
+    radial-gradient(1px 1px at 1020px 30px, #ffd, transparent);
+  background-size: 1100px 300px;
+  animation: stars-twinkle 4s ease-in-out infinite alternate;
+  opacity: 0.8;
+}
+
+@keyframes stars-twinkle {
+  0% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* ---------- Distant mountains ---------- */
+.orion-mountains {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background:
+    linear-gradient(135deg, transparent 0%, transparent 20%, #1a0b2e 20%, #1a0b2e 25%, transparent 25%, transparent 45%, #1a0b2e 45%, #1a0b2e 50%, transparent 50%, transparent 70%, #1a0b2e 70%, #1a0b2e 75%, transparent 75%),
+    linear-gradient(45deg, transparent 0%, transparent 15%, #2a1040 15%, #2a1040 20%, transparent 20%, transparent 40%, #2a1040 40%, #2a1040 45%, transparent 45%, transparent 65%, #2a1040 65%, #2a1040 70%, transparent 70%);
+  background-size: 100% 100%;
+  opacity: 0.6;
+  animation: mountains-shift 60s linear infinite;
+}
+
+@keyframes mountains-shift {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50px); }
+}
+
+/* ---------- Volcanic glow ---------- */
+.orion-volcano {
+  position: absolute;
+  bottom: 0;
+  left: 15%;
+  width: 200px;
+  height: 120px;
+  background: linear-gradient(to top, #ff4500, #8b0000, transparent);
+  clip-path: polygon(30% 100%, 40% 40%, 50% 0%, 60% 40%, 70% 100%);
+  opacity: 0.5;
+  animation: volcano-glow 3s ease-in-out infinite alternate;
+}
+
+@keyframes volcano-glow {
+  0% { opacity: 0.3; filter: brightness(0.8); }
+  100% { opacity: 0.7; filter: brightness(1.4); }
+}
+
+/* ---------- Lava rivers ---------- */
+.orion-lava {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 15%;
+  background:
+    linear-gradient(90deg, transparent 0%, #ff4500 10%, #ff8c00 20%, transparent 30%, transparent 50%, #ff4500 60%, #ff8c00 70%, transparent 80%);
+  filter: blur(4px);
+  opacity: 0.4;
+  animation: lava-flow 8s ease-in-out infinite alternate;
+}
+
+@keyframes lava-flow {
+  0% { transform: translateX(0); opacity: 0.3; }
+  100% { transform: translateX(30px); opacity: 0.6; }
+}
+
+/* ---------- Floating particles (ash / energy) ---------- */
+.orion-particle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: particle-float linear infinite;
+}
+
+@keyframes particle-float {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  10% { opacity: 0.8; }
+  90% { opacity: 0.6; }
+  100% { transform: translateY(-100vh) translateX(30px); opacity: 0; }
+}
+
+/* ---------- Slow ambient fog ---------- */
+.orion-fog {
+  position: absolute;
+  bottom: 0;
+  left: -20%;
+  right: -20%;
+  height: 30%;
+  background: linear-gradient(to top, rgba(255, 100, 50, 0.08), transparent);
+  filter: blur(20px);
+  animation: fog-drift 20s ease-in-out infinite alternate;
+}
+
+@keyframes fog-drift {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(60px); }
+}
+
+/* ---------- Planet Orion (distant) ---------- */
+.orion-planet {
+  position: absolute;
+  top: 8%;
+  right: 12%;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #ff8c00, #ff4500 40%, #8b0000 70%, #2a0000);
+  box-shadow: 0 0 40px rgba(255, 100, 50, 0.5), 0 0 80px rgba(255, 100, 50, 0.2);
+  animation: planet-pulse 6s ease-in-out infinite alternate;
+}
+
+@keyframes planet-pulse {
+  0% { box-shadow: 0 0 30px rgba(255, 100, 50, 0.4), 0 0 60px rgba(255, 100, 50, 0.15); }
+  100% { box-shadow: 0 0 50px rgba(255, 100, 50, 0.7), 0 0 100px rgba(255, 100, 50, 0.3); }
+}
+
+/* ---------- Game world container (above background) ---------- */
+.orion-world {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
