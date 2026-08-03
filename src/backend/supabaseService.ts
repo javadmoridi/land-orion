@@ -8,6 +8,38 @@ export class SupabaseNotConfiguredError extends Error {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Local fallback so the game can be entered before real Supabase creds exist.
+// Once VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are set, Supabase is used.
+// ---------------------------------------------------------------------------
+const FALLBACK_STORAGE_KEY = 'land-orion-save';
+
+function warnIfNotConfigured(): void {
+  if (!isSupabaseConfigured) {
+    console.warn(
+      '[land-orion] Supabase is NOT configured. Using LOCAL fallback storage. ' +
+        'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env to enable real persistence.',
+    );
+  }
+}
+
+function readFallback(): BackendSavePayload | null {
+  if (typeof window === 'undefined') return null;
+  const raw = window.localStorage.getItem(FALLBACK_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as BackendSavePayload;
+  } catch {
+    return null;
+  }
+}
+
+function writeFallback(payload: BackendSavePayload): void {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(FALLBACK_STORAGE_KEY, JSON.stringify(payload));
+  }
+}
+
 function mapPlayerRowToProfile(row: PlayerRow): PlayerProfile {
   return {
     id: row.id,
@@ -37,15 +69,14 @@ function mapProfileToRow(profile: PlayerProfile): Record<string, unknown> {
   };
 }
 
-function assertSupabaseConfigured(): void {
-  if (!isSupabaseConfigured || !supabase) {
-    throw new SupabaseNotConfiguredError();
-  }
-}
-
 export async function findPlayerByWallet(walletAddress: string): Promise<PlayerProfile | null> {
-  assertSupabaseConfigured();
-  if (!supabase) return null;
+  // No crash if Supabase isn't configured – fall back to local storage.
+  if (!isSupabaseConfigured || !supabase) {
+    warnIfNotConfigured();
+    const stored = readFallback();
+    if (stored && stored.player.walletAddress === walletAddress) return stored.player;
+    return null;
+  }
 
   // Set the wallet header so RLS matches the correct row.
   setWalletHeader(walletAddress);
@@ -75,8 +106,31 @@ const FRESH_GAME_STATE = (playerId: string): GameState => ({
 });
 
 export async function createNewPlayer(walletAddress: string): Promise<PlayerProfile> {
-  assertSupabaseConfigured();
-  if (!supabase) throw new SupabaseNotConfiguredError();
+  // No crash if Supabase isn't configured – create a local profile.
+  if (!isSupabaseConfigured || !supabase) {
+    warnIfNotConfigured();
+    const id = `player-${walletAddress}`;
+    const now = new Date().toISOString();
+    const profile: PlayerProfile = {
+      id,
+      walletAddress,
+      username: `Player-${walletAddress.slice(0, 6)}`,
+      level: 1,
+      experience: 0,
+      status: 'in-game',
+      inventory: [],
+      land: [],
+      createdAt: now,
+      lastSeenAt: now,
+    };
+    writeFallback({
+      player: profile,
+      gameState: FRESH_GAME_STATE(id),
+      land: [],
+      savedAt: now,
+    });
+    return profile;
+  }
 
   // Set the wallet header so RLS matches the correct row.
   setWalletHeader(walletAddress);
@@ -113,8 +167,12 @@ export async function createNewPlayer(walletAddress: string): Promise<PlayerProf
 }
 
 export async function savePlayerData(payload: BackendSavePayload): Promise<void> {
-  assertSupabaseConfigured();
-  if (!supabase) return;
+  // No crash if Supabase isn't configured – write to local storage.
+  if (!isSupabaseConfigured || !supabase) {
+    warnIfNotConfigured();
+    writeFallback(payload);
+    return;
+  }
 
   // Ensure the wallet header matches the player being saved.
   setWalletHeader(payload.player.walletAddress);
@@ -150,8 +208,13 @@ export async function savePlayerData(payload: BackendSavePayload): Promise<void>
 }
 
 export async function loadPlayerData(playerId: string): Promise<BackendSavePayload | null> {
-  assertSupabaseConfigured();
-  if (!supabase) return null;
+  // No crash if Supabase isn't configured – read from local storage.
+  if (!isSupabaseConfigured || !supabase) {
+    warnIfNotConfigured();
+    const stored = readFallback();
+    if (stored && stored.player.id === playerId) return stored;
+    return null;
+  }
 
   const { data, error } = await supabase
     .from('saves')
