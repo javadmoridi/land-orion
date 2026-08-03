@@ -1,28 +1,7 @@
-import { useEffect, useCallback } from 'react';
-import { useGameStore, type WorldTile } from './useGameStore';
+import { useEffect, useCallback, useState } from 'react';
+import { useGameStore } from './useGameStore';
 import { OrionBackground } from './OrionBackground';
-
-const TILE_SIZE = 56;
-const GRID_SIZE = 10;
-
-function tileEmoji(tile: WorldTile): string {
-  if (tile.harvested) return '🌱';
-  switch (tile.type) {
-    case 'tree': return '🌳';
-    case 'rock': return '🪨';
-    case 'farm': return '🌾';
-    case 'water': return '🌊';
-    default: return '🌿';
-  }
-}
-
-function tileColor(tile: WorldTile): string {
-  if (tile.type === 'water') return '#1a4a7a';
-  if (tile.type === 'farm') return '#8a6d3b';
-  if (tile.type === 'tree') return '#2d5a27';
-  if (tile.type === 'rock') return '#5a5a5a';
-  return '#3a7d44';
-}
+import { PlayerIsland } from './PlayerIsland';
 
 export function GameWorld() {
   const {
@@ -30,15 +9,14 @@ export function GameWorld() {
     playerProfile,
     saveGame,
     saveStatus,
-    lastSavedAt,
     isSaving,
-    playerPosition,
-    worldTiles,
-    selectedTile,
     movePlayer,
-    interactWithTile,
-    selectTile,
   } = useGameStore();
+
+  // Player position is managed locally on the island (center-start).
+  const islandSize = playerProfile?.level && playerProfile.level >= 3 ? 7 : playerProfile?.level === 2 ? 5 : 3;
+  const [playerX, setPlayerX] = useState(Math.floor(islandSize / 2));
+  const [playerY, setPlayerY] = useState(Math.floor(islandSize / 2));
 
   // Auto-save every 3 seconds
   useEffect(() => {
@@ -52,30 +30,44 @@ export function GameWorld() {
   // Keyboard movement (WASD + arrows)
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      let dx = 0;
+      let dy = 0;
       switch (e.key) {
         case 'ArrowUp':
         case 'w':
         case 'W':
-          movePlayer(0, -1);
+          dy = -1;
           break;
         case 'ArrowDown':
         case 's':
         case 'S':
-          movePlayer(0, 1);
+          dy = 1;
           break;
         case 'ArrowLeft':
         case 'a':
         case 'A':
-          movePlayer(-1, 0);
+          dx = -1;
           break;
         case 'ArrowRight':
         case 'd':
         case 'D':
-          movePlayer(1, 0);
+          dx = 1;
           break;
+        default:
+          return;
       }
+
+      const newX = playerX + dx;
+      const newY = playerY + dy;
+
+      // Boundary check within the island grid
+      if (newX < 0 || newX >= islandSize || newY < 0 || newY >= islandSize) return;
+
+      setPlayerX(newX);
+      setPlayerY(newY);
+      movePlayer(dx, dy);
     },
-    [movePlayer],
+    [playerX, playerY, islandSize, movePlayer],
   );
 
   useEffect(() => {
@@ -92,7 +84,7 @@ export function GameWorld() {
 
   return (
     <div style={{ minHeight: '100vh', position: 'relative' }}>
-      {/* Living Orion background */}
+      {/* Living Orion background (unchanged) */}
       <OrionBackground />
 
       {/* Game world above background */}
@@ -158,102 +150,13 @@ export function GameWorld() {
           </div>
         </div>
 
-        {/* Player's land island */}
-        <div
-          style={{
-            padding: 12,
-            borderRadius: 16,
-            background: 'rgba(10, 14, 26, 0.6)',
-            backdropFilter: 'blur(4px)',
-            border: '2px solid rgba(79, 124, 255, 0.3)',
-            boxShadow: '0 0 40px rgba(79, 124, 255, 0.15)',
-          }}
-        >
-          {/* Game Grid */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(${GRID_SIZE}, ${TILE_SIZE}px)`,
-              gridTemplateRows: `repeat(${GRID_SIZE}, ${TILE_SIZE}px)`,
-              gap: 2,
-              background: '#0a0e1a',
-              padding: 8,
-              borderRadius: 12,
-              width: 'fit-content',
-              margin: '0 auto',
-              border: '2px solid #2c3e5a',
-            }}
-          >
-            {worldTiles.map((tile) => {
-              const isPlayer = tile.x === playerPosition.x && tile.y === playerPosition.y;
-              const isSelected = selectedTile?.id === tile.id;
-              const isAdjacent =
-                Math.abs(tile.x - playerPosition.x) + Math.abs(tile.y - playerPosition.y) === 1;
-
-              return (
-                <div
-                  key={tile.id}
-                  onClick={() => {
-                    selectTile(tile);
-                    if (isAdjacent && tile.harvestable && !tile.harvested) {
-                      interactWithTile(tile);
-                    }
-                  }}
-                  style={{
-                    width: TILE_SIZE,
-                    height: TILE_SIZE,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: isPlayer ? '1.8rem' : '1.4rem',
-                    background: tileColor(tile),
-                    borderRadius: 6,
-                    cursor: isAdjacent && tile.harvestable && !tile.harvested ? 'pointer' : 'default',
-                    border: isSelected
-                      ? '3px solid #ffd700'
-                      : isAdjacent && tile.harvestable && !tile.harvested
-                        ? '2px solid rgba(255,215,0,0.4)'
-                        : '1px solid rgba(0,0,0,0.2)',
-                    position: 'relative',
-                    transition: 'transform 0.1s',
-                    transform: isPlayer ? 'scale(1.1)' : 'scale(1)',
-                  }}
-                >
-                  {isPlayer ? '🧑‍🌾' : tileEmoji(tile)}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {/* Player's raw pixel-art island (level-based size) */}
+        <PlayerIsland level={playerProfile.level} playerX={playerX} playerY={playerY} />
 
         {/* Controls hint */}
         <div style={{ textAlign: 'center', marginTop: '1rem', color: '#6b7c99', fontSize: '0.85rem' }}>
-          <p>Move: WASD / Arrow Keys • Click adjacent tree/rock/farm to harvest</p>
+          <p>Move: WASD / Arrow Keys</p>
         </div>
-
-        {/* Selected tile info */}
-        {selectedTile && (
-          <div
-            style={{
-              marginTop: '1rem',
-              padding: '0.75rem 1rem',
-              background: 'rgba(10, 14, 26, 0.85)',
-              backdropFilter: 'blur(8px)',
-              borderRadius: 10,
-              maxWidth: 400,
-              marginLeft: 'auto',
-              marginRight: 'auto',
-              textAlign: 'center',
-              border: '1px solid rgba(79, 124, 255, 0.2)',
-            }}
-          >
-            <p style={{ margin: 0 }}>
-              {selectedTile.harvested
-                ? `🌱 ${selectedTile.type} (harvested)`
-                : `${tileEmoji(selectedTile)} ${selectedTile.type}${selectedTile.harvestable ? ' — click to harvest' : ''}`}
-            </p>
-          </div>
-        )}
 
         {/* Inventory */}
         <div
@@ -284,7 +187,7 @@ export function GameWorld() {
           <p>Wallet: {playerProfile.walletAddress}</p>
           <p>Land plots: {playerProfile.land.length}</p>
           <p>Status: {playerProfile.status}</p>
-          <p>Last save: {lastSavedAt ?? 'Not saved yet'}</p>
+          <p>Last save: {saveStatus}</p>
         </div>
       </div>
     </div>
