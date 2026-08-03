@@ -44,8 +44,14 @@ export function WalletConnectionScreen() {
     }
   }, []);
 
+  // NOTE: tonProof is optional in TON Connect 2.4.4.
+  // A real tonProof payload must come from a backend that signs a
+  // challenge with the wallet. Sending a fake/static value here causes
+  // the wallet to reject the connection request, so we intentionally
+  // do NOT set connect request parameters until a real backend exists.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    tonConnectUI.setConnectRequestParameters({ state: 'ready', value: { tonProof: 'land-orion-v1' } });
+    tonConnectUI.setConnectRequestParameters(null);
   }, [tonConnectUI]);
 
   useEffect(() => {
