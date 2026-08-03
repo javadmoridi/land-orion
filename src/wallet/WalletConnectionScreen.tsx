@@ -23,8 +23,8 @@ declare global {
 }
 
 // Replace this file to change the wallet screen background:
-// public/assets/wallet-background.svg
-export const WALLET_BACKGROUND = '/assets/wallet-background.svg';
+// public/assets/wallet-background.jpg
+export const WALLET_BACKGROUND = '/assets/wallet-background.jpg';
 
 export function WalletConnectionScreen() {
   const userFriendlyAddress = useTonAddress();
