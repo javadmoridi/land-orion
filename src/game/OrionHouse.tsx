@@ -3,28 +3,30 @@ import { useRef, useState, useCallback } from 'react';
 // Orion House building sprite
 const ORION_HOUSE_IMAGE = '/assets/orion-house.png';
 
-// Building size in grid tiles (max 2x2)
-const HOUSE_TILES = 2;
-// The land grid is 5x5
-const GRID_SIZE = 5;
+// Each land tile has a 3x3 sub-grid
+const SUB_GRID = 3;
+// Building occupies 2x2 sub-cells inside one land tile
+const HOUSE_SUB_SIZE = 2;
+// Max position in sub-grid (3 - 2 = 1)
+const MAX_SUB_POS = SUB_GRID - HOUSE_SUB_SIZE; // 1
 
 interface OrionHouseProps {
-  // Grid position (top-left tile of the 2x2 building)
-  gridX: number;
-  gridY: number;
+  // Sub-grid position inside the owning land tile (0 or 1 on each axis)
+  subX: number;
+  subY: number;
   // Callback when the house is moved (for future save system)
-  onMove?: (gridX: number, gridY: number) => void;
+  onMove?: (subX: number, subY: number) => void;
 }
 
 /**
  * Movable Orion House building.
- * - Long-press + drag to move.
- * - Snaps to the land grid (2x2 tiles max).
- * - Position is kept in grid coordinates for future save system.
- * - Uses percentage-based sizing so it works with responsive land grid.
+ * - Lives INSIDE one land tile (rendered as a child of that tile).
+ * - Occupies 2x2 sub-cells of the tile's 3x3 sub-grid.
+ * - Long-press + drag to move, snaps to the tile sub-grid.
+ * - Position stored as sub-grid coords for future save system.
  */
-export function OrionHouse({ gridX, gridY, onMove }: OrionHouseProps) {
-  const [pos, setPos] = useState({ x: gridX, y: gridY });
+export function OrionHouse({ subX, subY, onMove }: OrionHouseProps) {
+  const [pos, setPos] = useState({ x: subX, y: subY });
   const [isDragging, setIsDragging] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -46,19 +48,20 @@ export function OrionHouse({ gridX, gridY, onMove }: OrionHouseProps) {
 
       const container = containerRef.current;
       const rect = container.getBoundingClientRect();
-      const tileSize = rect.width / GRID_SIZE;
+      // Size of one sub-cell inside the owning tile
+      const subCellSize = rect.width / SUB_GRID;
 
-      // Position relative to container top-left, centered on cursor
+      // Position relative to tile top-left
       const relX = e.clientX - rect.left;
       const relY = e.clientY - rect.top;
 
-      // Snap to grid (top-left of the 2x2 building centered on cursor)
-      const snappedX = Math.floor((relX - (HOUSE_TILES * tileSize) / 2) / tileSize);
-      const snappedY = Math.floor((relY - (HOUSE_TILES * tileSize) / 2) / tileSize);
+      // Snap to sub-grid (top-left of 2x2 house centered on cursor)
+      const snappedX = Math.floor((relX - (HOUSE_SUB_SIZE * subCellSize) / 2) / subCellSize);
+      const snappedY = Math.floor((relY - (HOUSE_SUB_SIZE * subCellSize) / 2) / subCellSize);
 
-      // Clamp to bounds: keep 2x2 within the 5x5 grid
-      const clampedX = Math.max(0, Math.min(snappedX, GRID_SIZE - HOUSE_TILES));
-      const clampedY = Math.max(0, Math.min(snappedY, GRID_SIZE - HOUSE_TILES));
+      // Clamp to 0..MAX_SUB_POS
+      const clampedX = Math.max(0, Math.min(snappedX, MAX_SUB_POS));
+      const clampedY = Math.max(0, Math.min(snappedY, MAX_SUB_POS));
 
       setPos({ x: clampedX, y: clampedY });
     },
@@ -87,10 +90,10 @@ export function OrionHouse({ gridX, gridY, onMove }: OrionHouseProps) {
     }
   }, [isDragging]);
 
-  // Percentage-based size for responsiveness
-  const houseSizePercent = (HOUSE_TILES / GRID_SIZE) * 100;
-  const posXPercent = (pos.x / GRID_SIZE) * 100;
-  const posYPercent = (pos.y / GRID_SIZE) * 100;
+  // Percentage sizes relative to the owning land tile
+  const houseSizePercent = (HOUSE_SUB_SIZE / SUB_GRID) * 100; // 66.666%
+  const posXPercent = (pos.x / SUB_GRID) * 100;
+  const posYPercent = (pos.y / SUB_GRID) * 100;
 
   return (
     <div
@@ -100,7 +103,7 @@ export function OrionHouse({ gridX, gridY, onMove }: OrionHouseProps) {
         inset: 0,
         width: '100%',
         height: '100%',
-        pointerEvents: 'none', // land grid still receives clicks
+        pointerEvents: 'none', // land tile still receives interactions
       }}
     >
       <div

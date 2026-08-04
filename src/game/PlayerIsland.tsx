@@ -243,6 +243,11 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
                     />
                   ))}
                 </div>
+
+                {/* Orion House – inside the first unlocked land tile */}
+                {index === 0 && (
+                  <OrionHouse subX={0} subY={0} />
+                )}
               </div>
             );
           }
@@ -307,19 +312,6 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
           );
         })}
 
-        {/* Orion House building – only on active land */}
-        {unlockedCount >= 2 && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              zIndex: 4,
-              pointerEvents: 'none',
-            }}
-          >
-            <OrionHouse gridX={1} gridY={1} />
-          </div>
-        )}
       </div>
     </div>
   );
