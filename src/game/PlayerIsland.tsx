@@ -235,8 +235,6 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
                 data-piece={`${x}-${y}`}
                 style={{
                   position: 'relative',
-                  width: pieceSize,
-                  height: pieceSize,
                   backgroundImage: `url(${LAND_PIECE_IMAGE})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
@@ -275,8 +273,6 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
                 data-piece={`${x}-${y}`}
                 data-locked="true"
                 style={{
-                  width: pieceSize,
-                  height: pieceSize,
                   border: '3px dashed rgba(255, 215, 0, 0.5)',
                   borderRadius: 8,
                   display: 'flex',
@@ -322,8 +318,6 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
               data-piece={`${x}-${y}`}
               data-hidden-locked="true"
               style={{
-                width: pieceSize,
-                height: pieceSize,
                 background: 'transparent',
                 border: 'none',
               }}
