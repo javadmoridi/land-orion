@@ -2,6 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { useGameStore } from './useGameStore';
 import { OrionBackground } from './OrionBackground';
 import { PlayerIsland } from './PlayerIsland';
+import { LevelBadge } from './LevelBadge';
 
 export function GameWorld() {
   const {
@@ -67,6 +68,9 @@ export function GameWorld() {
     <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       {/* Full-screen background image */}
       <OrionBackground />
+
+      {/* Floating level HUD badge */}
+      <LevelBadge level={playerProfile.level} experience={playerProfile.experience} />
 
       {/* Player island centered in the world */}
       <div
