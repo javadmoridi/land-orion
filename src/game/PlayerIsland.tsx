@@ -11,38 +11,6 @@ const INNER_GRID = 3;
 // full 5x5 (25-piece) grid always fits on screen with Orion background visible.
 const BASE_PIECE_SIZE = 150;
 
-// ---------------------------------------------------------------------------
-// EXPANSION PATTERN (center-out square grid, max 5x5 = 25 pieces)
-// Spiral order starting from the center (2,2).
-// ---------------------------------------------------------------------------
-const SPIRAL: Array<[number, number]> = [
-  [2, 2], // 1
-  [3, 2], // 2
-  [3, 3], // 3
-  [2, 3], // 4
-  [1, 3], // 5
-  [1, 2], // 6
-  [1, 1], // 7
-  [2, 1], // 8
-  [3, 1], // 9
-  [4, 1], // 10
-  [4, 2], // 11
-  [4, 3], // 12
-  [4, 4], // 13
-  [3, 4], // 14
-  [2, 4], // 15
-  [1, 4], // 16
-  [0, 4], // 17
-  [0, 3], // 18
-  [0, 2], // 19
-  [0, 1], // 20
-  [0, 0], // 21
-  [1, 0], // 22
-  [2, 0], // 23
-  [3, 0], // 24
-  [4, 0], // 25
-];
-
 const MAX_PIECES = 25;
 
 // ---------------------------------------------------------------------------
@@ -142,25 +110,26 @@ export function meetsUnlockCondition(condition: UnlockCondition, state: PlayerUn
   return true;
 }
 
-// Map a spiral piece index to its position in the 5x5 map grid.
-function mapGridPosition(spiralIndex: number): { mapX: number; mapY: number } {
-  // SPIRAL contains [x,y] where x=column (0..4), y=row (0..4)
-  const [x, y] = SPIRAL[spiralIndex];
-  return { mapX: x, mapY: y };
+// ---------------------------------------------------------------------------
+// SIMPLE 5x5 MAPPING (row-major, NOT spiral)
+// Cell index = row * 5 + col
+// Cell (row, col) shows slice at (col/5*100%, row/5*100%) of land-map.png
+// ---------------------------------------------------------------------------
+function cellPosition(cellIndex: number): { row: number; col: number } {
+  return {
+    row: Math.floor(cellIndex / MAP_GRID_SIZE),
+    col: cellIndex % MAP_GRID_SIZE,
+  };
 }
 
-// Compute the background-position percentages to show only the correct
-// slice of land-map.png for a given grid cell (mapX, mapY).
-// For a 5x5 map, the visible slice is 1/5 of the image each direction.
-function backgroundPositionFor(mapX: number, mapY: number): string {
-  // Percentage of the image offset. For a 5x5 map we take 1/5 slices.
-  const pctX = (mapX / MAP_GRID_SIZE) * 100;
-  const pctY = (mapY / MAP_GRID_SIZE) * 100;
+// background-position for a cell: show only that cell's slice of land-map.png
+function backgroundPositionFor(row: number, col: number): string {
+  const pctX = (col / MAP_GRID_SIZE) * 100;
+  const pctY = (row / MAP_GRID_SIZE) * 100;
   return `${pctX}% ${pctY}%`;
 }
 
-// Compute the background-size percentages to show exactly one slice.
-// For a 5x5 map, visible slice is (100 * 5) = 500% of the element.
+// background-size: enlarge the map so only one cell is visible
 function backgroundSizeFor(): string {
   return `${100 * MAP_GRID_SIZE}% ${100 * MAP_GRID_SIZE}%`;
 }
@@ -177,10 +146,10 @@ interface PlayerIslandProps {
 /**
  * Land display + unlock logic:
  * - Only unlocked lands are rendered.
- * - Each unlocked land shows the matching slice of land-map.png.
- * - Only ONE next locked slot is shown (dashed outline + Unlock button).
- * - All future locked slots are hidden until their level is reached.
- * - Lands expand from the center outward in a square grid (never linear).
+ * - Each unlocked land shows the matching slice of land-map.png (simple 5x5).
+ * - Locked lands show NO part of land-map.png (dashed outline + Unlock button).
+ * - Only ONE next locked slot is shown.
+ * - All future locked slots are hidden.
  * - When 25 lands are reached, no further lock is shown.
  */
 export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRequest }: PlayerIslandProps) {
@@ -199,37 +168,23 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
   // Land 1 and 2 are always unlocked at start (conditions minLevel 0)
   const showLock = unlockedCount < MAX_PIECES;
   const nextCondition = showLock ? conditionFor(unlockedCount) : null;
-  const totalShown = unlockedCount + (showLock ? 1 : 0);
 
-  // Positions to render: active lands + (optionally) the single next lock
-  const shownPositions = SPIRAL.slice(0, totalShown);
-  const lockPosition = showLock ? SPIRAL[unlockedCount] : null;
-
-  // Compute bounding box so the grid is always centered around the active land
-  const xs = shownPositions.map(([x]) => x);
-  const ys = shownPositions.map(([, y]) => y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  const cols = maxX - minX + 1;
-  const rows = maxY - minY + 1;
+  // Simple 5x5 grid: first `unlockedCount` cells are active,
+  // the next cell (if any) is the lock, rest are hidden.
+  const cells = Array.from({ length: MAX_PIECES }, (_, i) => {
+    const { row, col } = cellPosition(i);
+    return {
+      index: i,
+      row,
+      col,
+      isActive: i < unlockedCount,
+      isLock: showLock && i === unlockedCount,
+    };
+  });
 
   // Responsive piece size: never exceed base, but shrink so the whole grid
   // (up to 5x5) fits within ~85% of the viewport width.
-  const pieceSize = `min(${BASE_PIECE_SIZE}px, calc(85vw / ${cols}))`;
-
-  // Build grid cells (invisible placeholders for future-locked positions)
-  const cells: Array<{ x: number; y: number; isActive: boolean; isLock: boolean }> = [];
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const isActive = shownPositions
-        .slice(0, unlockedCount)
-        .some(([px, py]) => px === x && py === y);
-      const isLock = lockPosition ? lockPosition[0] === x && lockPosition[1] === y : false;
-      cells.push({ x, y, isActive, isLock });
-    }
-  }
+  const pieceSize = `min(${BASE_PIECE_SIZE}px, calc(85vw / ${MAP_GRID_SIZE}))`;
 
   return (
     <div
@@ -244,27 +199,23 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${cols}, ${pieceSize})`,
-          gridTemplateRows: `repeat(${rows}, ${pieceSize})`,
+          gridTemplateColumns: `repeat(${MAP_GRID_SIZE}, ${pieceSize})`,
+          gridTemplateRows: `repeat(${MAP_GRID_SIZE}, ${pieceSize})`,
           gap: 0, // pieces sit flush together
         }}
       >
-        {cells.map(({ x, y, isActive, isLock }) => {
+        {cells.map(({ index, row, col, isActive, isLock }) => {
           if (isActive) {
-            // Map position from spiral index → find piece index for this cell
-            const spiralIdx = SPIRAL.findIndex(([px, py]) => px === x && py === y);
-            const mapPos = spiralIdx >= 0 ? mapGridPosition(spiralIdx) : { mapX: x, mapY: y };
-
             // Active piece – show matching slice of land-map.png
             return (
               <div
-                key={`${x}-${y}`}
-                data-piece={`${x}-${y}`}
+                key={index}
+                data-piece={index}
                 style={{
                   position: 'relative',
                   backgroundImage: `url(${LAND_MAP_IMAGE})`,
                   backgroundSize: backgroundSizeFor(),
-                  backgroundPosition: backgroundPositionFor(mapPos.mapX, mapPos.mapY),
+                  backgroundPosition: backgroundPositionFor(row, col),
                   backgroundRepeat: 'no-repeat',
                   imageRendering: 'pixelated',
                 }}
@@ -283,7 +234,7 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
                   {Array.from({ length: INNER_GRID * INNER_GRID }, (_, slot) => (
                     <div
                       key={slot}
-                      data-piece={`${x}-${y}`}
+                      data-piece={index}
                       data-slot={slot}
                       style={{ opacity: 0 }}
                     />
@@ -294,11 +245,11 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
           }
 
           if (isLock) {
-            // Only the NEXT unlockable slot is shown
+            // Only the NEXT unlockable slot is shown – NO land-map.png
             return (
               <div
-                key={`${x}-${y}`}
-                data-piece={`${x}-${y}`}
+                key={index}
+                data-piece={index}
                 data-locked="true"
                 style={{
                   border: '3px dashed rgba(255, 215, 0, 0.5)',
@@ -342,8 +293,8 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
           // Hidden future-locked placeholder – not visible at all
           return (
             <div
-              key={`${x}-${y}`}
-              data-piece={`${x}-${y}`}
+              key={index}
+              data-piece={index}
               data-hidden-locked="true"
               style={{
                 background: 'transparent',
