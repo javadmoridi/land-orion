@@ -28,6 +28,7 @@ interface OrionHouseProps {
 export function OrionHouse({ subX, subY, onMove }: OrionHouseProps) {
   const [pos, setPos] = useState({ x: subX, y: subY });
   const [isDragging, setIsDragging] = useState(false);
+  const [longPressActivated, setLongPressActivated] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -36,15 +37,28 @@ export function OrionHouse({ subX, subY, onMove }: OrionHouseProps) {
     e.preventDefault();
     e.stopPropagation();
 
+    // Capture pointer so we receive events even outside the element
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+
     longPressTimer.current = window.setTimeout(() => {
+      setLongPressActivated(true);
       setIsDragging(true);
     }, 500);
   }, []);
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!isDragging || !containerRef.current) return;
       e.preventDefault();
+
+      // Cancel long-press timer if finger moves before 500ms
+      if (!longPressActivated && longPressTimer.current) {
+        window.clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+        return;
+      }
+
+      if (!isDragging || !containerRef.current) return;
 
       const container = containerRef.current;
       const rect = container.getBoundingClientRect();
@@ -65,7 +79,7 @@ export function OrionHouse({ subX, subY, onMove }: OrionHouseProps) {
 
       setPos({ x: clampedX, y: clampedY });
     },
-    [isDragging],
+    [isDragging, longPressActivated],
   );
 
   const handlePointerUp = useCallback(() => {
@@ -75,8 +89,11 @@ export function OrionHouse({ subX, subY, onMove }: OrionHouseProps) {
     }
     if (isDragging) {
       setIsDragging(false);
+      setLongPressActivated(false);
       // Keep position ready for future save system
       onMove?.(pos.x, pos.y);
+    } else {
+      setLongPressActivated(false);
     }
   }, [isDragging, pos, onMove]);
 
@@ -85,10 +102,9 @@ export function OrionHouse({ subX, subY, onMove }: OrionHouseProps) {
       window.clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
-    if (isDragging) {
-      setIsDragging(false);
-    }
-  }, [isDragging]);
+    setIsDragging(false);
+    setLongPressActivated(false);
+  }, []);
 
   // Percentage sizes relative to the owning land tile
   const houseSizePercent = (HOUSE_SUB_SIZE / SUB_GRID) * 100; // 66.666%
