@@ -1,6 +1,9 @@
-// Land piece image – replace this file to change the land piece:
-// public/assets/land-piece.png
-const LAND_PIECE_IMAGE = '/assets/land-piece.png';
+// Land map image – one full image containing all land pieces.
+// Replace this file to change the whole land map (1024x1024, 5x5 grid).
+const LAND_MAP_IMAGE = '/assets/land-map.png';
+
+// The land map is a 5x5 grid of land pieces
+const MAP_GRID_SIZE = 5;
 
 // Each land piece has an invisible 3x3 grid (9 usable slots) for logic only
 const INNER_GRID = 3;
@@ -139,6 +142,29 @@ export function meetsUnlockCondition(condition: UnlockCondition, state: PlayerUn
   return true;
 }
 
+// Map a spiral piece index to its position in the 5x5 map grid.
+function mapGridPosition(spiralIndex: number): { mapX: number; mapY: number } {
+  // SPIRAL contains [x,y] where x=column (0..4), y=row (0..4)
+  const [x, y] = SPIRAL[spiralIndex];
+  return { mapX: x, mapY: y };
+}
+
+// Compute the background-position percentages to show only the correct
+// slice of land-map.png for a given grid cell (mapX, mapY).
+// For a 5x5 map, the visible slice is 1/5 of the image each direction.
+function backgroundPositionFor(mapX: number, mapY: number): string {
+  // Percentage of the image offset. For a 5x5 map we take 1/5 slices.
+  const pctX = (mapX / MAP_GRID_SIZE) * 100;
+  const pctY = (mapY / MAP_GRID_SIZE) * 100;
+  return `${pctX}% ${pctY}%`;
+}
+
+// Compute the background-size percentages to show exactly one slice.
+// For a 5x5 map, visible slice is (100 * 5) = 500% of the element.
+function backgroundSizeFor(): string {
+  return `${100 * MAP_GRID_SIZE}% ${100 * MAP_GRID_SIZE}%`;
+}
+
 interface PlayerIslandProps {
   level: number;
   resources?: Record<string, number>;
@@ -150,15 +176,12 @@ interface PlayerIslandProps {
 
 /**
  * Land display + unlock logic:
- * - Only unlocked lands are rendered (land-piece.png images).
+ * - Only unlocked lands are rendered.
+ * - Each unlocked land shows the matching slice of land-map.png.
  * - Only ONE next locked slot is shown (dashed outline + Unlock button).
  * - All future locked slots are hidden until their level is reached.
  * - Lands expand from the center outward in a square grid (never linear).
  * - When 25 lands are reached, no further lock is shown.
- *
- * Unlock architecture:
- * - Each land has its own unlock condition (level + resources + items).
- * - Player level alone does NOT unlock a land – ALL conditions must be met.
  */
 export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRequest }: PlayerIslandProps) {
   const playerState: PlayerUnlockState = { level, resources, inventory };
@@ -228,16 +251,21 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
       >
         {cells.map(({ x, y, isActive, isLock }) => {
           if (isActive) {
-            // Active piece – real land image, no borders/outlines
+            // Map position from spiral index → find piece index for this cell
+            const spiralIdx = SPIRAL.findIndex(([px, py]) => px === x && py === y);
+            const mapPos = spiralIdx >= 0 ? mapGridPosition(spiralIdx) : { mapX: x, mapY: y };
+
+            // Active piece – show matching slice of land-map.png
             return (
               <div
                 key={`${x}-${y}`}
                 data-piece={`${x}-${y}`}
                 style={{
                   position: 'relative',
-                  backgroundImage: `url(${LAND_PIECE_IMAGE})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
+                  backgroundImage: `url(${LAND_MAP_IMAGE})`,
+                  backgroundSize: backgroundSizeFor(),
+                  backgroundPosition: backgroundPositionFor(mapPos.mapX, mapPos.mapY),
+                  backgroundRepeat: 'no-repeat',
                   imageRendering: 'pixelated',
                 }}
               >
