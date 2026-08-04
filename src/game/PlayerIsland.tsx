@@ -1,3 +1,5 @@
+import { OrionHouse } from './OrionHouse';
+
 // Land map image – one full image containing all land pieces.
 // Replace this file to change the whole land map (1024x1024, 5x5 grid).
 const LAND_MAP_IMAGE = '/assets/land-map.png';
@@ -198,6 +200,7 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
     >
       <div
         style={{
+          position: 'relative',
           display: 'grid',
           gridTemplateColumns: `repeat(${MAP_GRID_SIZE}, ${pieceSize})`,
           gridTemplateRows: `repeat(${MAP_GRID_SIZE}, ${pieceSize})`,
@@ -303,6 +306,20 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
             />
           );
         })}
+
+        {/* Orion House building – only on active land */}
+        {unlockedCount >= 2 && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 4,
+              pointerEvents: 'none',
+            }}
+          >
+            <OrionHouse gridX={1} gridY={1} />
+          </div>
+        )}
       </div>
     </div>
   );
