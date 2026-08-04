@@ -1,6 +1,6 @@
 // Land piece image – replace this file to change the land piece:
-// public/assets/land-tile.png
-const LAND_PIECE_IMAGE = '/assets/land-tile.png';
+// public/assets/land-piece.png
+const LAND_PIECE_IMAGE = '/assets/land-piece.png';
 
 // Each land piece has an invisible 3x3 grid (9 usable slots) for logic only
 const INNER_GRID = 3;
@@ -150,7 +150,7 @@ interface PlayerIslandProps {
 
 /**
  * Land display + unlock logic:
- * - Only unlocked lands are rendered (land-tile.png images).
+ * - Only unlocked lands are rendered (land-piece.png images).
  * - Only ONE next locked slot is shown (dashed outline + Unlock button).
  * - All future locked slots are hidden until their level is reached.
  * - Lands expand from the center outward in a square grid (never linear).
