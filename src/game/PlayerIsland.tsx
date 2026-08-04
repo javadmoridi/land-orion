@@ -4,7 +4,9 @@ const LAND_PIECE_IMAGE = '/assets/land-tile.png';
 
 // Each land piece has an invisible 3x3 grid (9 usable slots) for logic only
 const INNER_GRID = 3;
-const PIECE_SIZE = 200;
+// Base piece size (~25% smaller than before). Made responsive below so the
+// full 5x5 (25-piece) grid always fits on screen with Orion background visible.
+const BASE_PIECE_SIZE = 150;
 
 // ---------------------------------------------------------------------------
 // EXPANSION PATTERN (center-out square grid, max 5x5 = 25 pieces)
@@ -190,6 +192,10 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
   const cols = maxX - minX + 1;
   const rows = maxY - minY + 1;
 
+  // Responsive piece size: never exceed base, but shrink so the whole grid
+  // (up to 5x5) fits within ~85% of the viewport width.
+  const pieceSize = `min(${BASE_PIECE_SIZE}px, calc(85vw / ${cols}))`;
+
   // Build grid cells (invisible placeholders for future-locked positions)
   const cells: Array<{ x: number; y: number; isActive: boolean; isLock: boolean }> = [];
   for (let y = minY; y <= maxY; y++) {
@@ -215,8 +221,8 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${cols}, ${PIECE_SIZE}px)`,
-          gridTemplateRows: `repeat(${rows}, ${PIECE_SIZE}px)`,
+          gridTemplateColumns: `repeat(${cols}, ${pieceSize})`,
+          gridTemplateRows: `repeat(${rows}, ${pieceSize})`,
           gap: 0, // pieces sit flush together
         }}
       >
@@ -229,8 +235,8 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
                 data-piece={`${x}-${y}`}
                 style={{
                   position: 'relative',
-                  width: PIECE_SIZE,
-                  height: PIECE_SIZE,
+                  width: pieceSize,
+                  height: pieceSize,
                   backgroundImage: `url(${LAND_PIECE_IMAGE})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
@@ -269,8 +275,8 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
                 data-piece={`${x}-${y}`}
                 data-locked="true"
                 style={{
-                  width: PIECE_SIZE,
-                  height: PIECE_SIZE,
+                  width: pieceSize,
+                  height: pieceSize,
                   border: '3px dashed rgba(255, 215, 0, 0.5)',
                   borderRadius: 8,
                   display: 'flex',
@@ -316,8 +322,8 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
               data-piece={`${x}-${y}`}
               data-hidden-locked="true"
               style={{
-                width: PIECE_SIZE,
-                height: PIECE_SIZE,
+                width: pieceSize,
+                height: pieceSize,
                 background: 'transparent',
                 border: 'none',
               }}
