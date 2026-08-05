@@ -12,11 +12,12 @@ interface UnlockedLand {
 }
 
 interface OrionHouseProps {
-  landX: number;
-  landY: number;
-  subX: number;
-  subY: number;
   unlockedLands: UnlockedLand[];
+
+  landX?: number;
+  landY?: number;
+  subX?: number;
+  subY?: number;
 
   onMove?: (
     landX: number,
@@ -27,13 +28,14 @@ interface OrionHouseProps {
 }
 
 export function OrionHouse({
-  landX,
-  landY,
-  subX,
-  subY,
   unlockedLands,
+  landX = 0,
+  landY = 0,
+  subX = 0,
+  subY = 0,
   onMove,
 }: OrionHouseProps) {
+
   const [position, setPosition] = useState({
     landX,
     landY,
@@ -44,16 +46,9 @@ export function OrionHouse({
   const [dragging, setDragging] = useState(false);
 
   const timer = useRef<number | null>(null);
-  const startPoint = useRef({ x: 0, y: 0 });
 
-  function pointerDown(e: React.PointerEvent) {
-    e.preventDefault();
 
-    startPoint.current = {
-      x: e.clientX,
-      y: e.clientY,
-    };
-
+  function pointerDown() {
     timer.current = window.setTimeout(() => {
       setDragging(true);
     }, 500);
@@ -63,39 +58,39 @@ export function OrionHouse({
   function pointerMove(e: React.PointerEvent) {
     if (!dragging) return;
 
-    const element = e.currentTarget.parentElement;
-    if (!element) return;
+    const map = e.currentTarget.parentElement;
+    if (!map) return;
 
-    const rect = element.getBoundingClientRect();
 
-    // اندازه هر زمین
+    const rect = map.getBoundingClientRect();
+
+    // اندازه یک زمین از نقشه 5x5
     const tileWidth = rect.width / 5;
     const tileHeight = rect.height / 5;
 
 
-    // پیدا کردن زمین مقصد
-    const mapX = e.clientX - rect.left;
-    const mapY = e.clientY - rect.top;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
 
 
-    const newLandX = Math.floor(mapX / tileWidth);
-    const newLandY = Math.floor(mapY / tileHeight);
+    const newLandX = Math.floor(mouseX / tileWidth);
+    const newLandY = Math.floor(mouseY / tileHeight);
 
 
     // فقط زمین های باز
-    const canMove = unlockedLands.some(
+    const opened = unlockedLands.some(
       land =>
         land.x === newLandX &&
         land.y === newLandY
     );
 
 
-    if (!canMove) return;
+    if (!opened) return;
 
 
     // محل داخل همان زمین
-    const insideX = mapX - newLandX * tileWidth;
-    const insideY = mapY - newLandY * tileHeight;
+    const insideX = mouseX - newLandX * tileWidth;
+    const insideY = mouseY - newLandY * tileHeight;
 
 
     let newSubX = Math.floor(
@@ -107,8 +102,16 @@ export function OrionHouse({
     );
 
 
-    newSubX = Math.max(0, Math.min(1, newSubX));
-    newSubY = Math.max(0, Math.min(1, newSubY));
+    // خانه 2x2 جا شود
+    newSubX = Math.max(
+      0,
+      Math.min(1, newSubX)
+    );
+
+    newSubY = Math.max(
+      0,
+      Math.min(1, newSubY)
+    );
 
 
     setPosition({
@@ -139,8 +142,18 @@ export function OrionHouse({
   }
 
 
-  // اندازه مثل قبل: 2 خانه از 3 خانه
+  // خانه = 2 قسمت از 3 قسمت یک زمین
   const size = (HOUSE_SIZE / SUB_GRID) * 100;
+
+
+  // جای خانه داخل زمین خودش
+  const left =
+    position.landX * 20 +
+    position.subX * (20 / SUB_GRID);
+
+  const top =
+    position.landY * 20 +
+    position.subY * (20 / SUB_GRID);
 
 
   return (
@@ -152,7 +165,6 @@ export function OrionHouse({
         zIndex: 20,
       }}
     >
-
       <div
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
@@ -160,21 +172,11 @@ export function OrionHouse({
         style={{
           position: 'absolute',
 
-          // زمین فعلی + جای خانه داخل همان زمین
-          left:
-            `${position.landX * 20 + position.subX * 6.66}%`,
+          left: `${left}%`,
+          top: `${top}%`,
 
-          top:
-            `${position.landY * 20 + position.subY * 6.66}%`,
-
-
-          // اندازه یک زمین تقسیم بر 5
-          width:
-            `${size * 0.2}%`,
-
-          height:
-            `${size * 0.2}%`,
-
+          width: `${size * 0.2}%`,
+          height: `${size * 0.2}%`,
 
           backgroundImage:
             `url(${ORION_HOUSE_IMAGE})`,
@@ -190,11 +192,8 @@ export function OrionHouse({
 
           pointerEvents: 'auto',
           touchAction: 'none',
-
-          userSelect: 'none',
         }}
       />
-
     </div>
   );
 }
