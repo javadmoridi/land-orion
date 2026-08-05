@@ -36,12 +36,19 @@ export function OrionHouse({ subX, subY, onMove }: OrionHouseProps) {
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    console.log('[OrionHouse] pointerDown received, pointerId:', e.pointerId);
 
     // Capture pointer so we receive events even outside the element
     const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
+    try {
+      target.setPointerCapture(e.pointerId);
+      console.log('[OrionHouse] pointerCapture set');
+    } catch (err) {
+      console.warn('[OrionHouse] setPointerCapture failed:', err);
+    }
 
     longPressTimer.current = window.setTimeout(() => {
+      console.log('[OrionHouse] longPress activated, starting drag');
       setLongPressActivated(true);
       setIsDragging(true);
     }, 500);
@@ -119,7 +126,6 @@ export function OrionHouse({ subX, subY, onMove }: OrionHouseProps) {
         inset: 0,
         width: '100%',
         height: '100%',
-        pointerEvents: 'none', // land tile still receives interactions
       }}
     >
       <div
@@ -142,7 +148,7 @@ export function OrionHouse({ subX, subY, onMove }: OrionHouseProps) {
           touchAction: 'none',
           pointerEvents: 'auto',
           transition: isDragging ? 'none' : 'left 0.15s, top 0.15s',
-          zIndex: 5,
+          zIndex: isDragging ? 100 : 5,
         }}
       />
     </div>

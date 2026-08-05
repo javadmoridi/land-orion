@@ -1,5 +1,4 @@
 import { OrionHouse } from './OrionHouse';
-import { OrionCharacter } from './OrionCharacter';
 
 // Land map image – one full image containing all land pieces.
 // Replace this file to change the whole land map (1024x1024, 5x5 grid).
@@ -245,13 +244,9 @@ export function PlayerIsland({ level, resources = {}, inventory = [], onUnlockRe
                   ))}
                 </div>
 
-                {/* Orion House + Character – inside the first unlocked land tile */}
+                {/* Orion House – inside the first unlocked land tile */}
                 {index === 0 && (
-                  <>
-                    <OrionHouse subX={0} subY={0} />
-                    {/* Character beside the house (right side of tile) */}
-                    <OrionCharacter leftPercent={66} topPercent={33} sizePercent={33} />
-                  </>
+                  <OrionHouse subX={0} subY={0} />
                 )}
               </div>
             );

@@ -1,16 +1,32 @@
+// XP required to go from `level` to `level + 1`
+// formula: xpRequired(level) = 20 * Math.pow(1.2, level - 1)
+export function xpRequiredForLevel(level: number): number {
+  return Math.round(20 * Math.pow(1.2, level - 1));
+}
+
+// Orion character sprite shown inside the HUD circle
+const ORION_CHARACTER_IMAGE = '/assets/orion-character.png';
+
 interface LevelBadgeProps {
   level: number;
   experience: number;
-  // XP needed to reach the next level (default 1000)
-  xpToNext?: number;
 }
 
 /**
  * Floating HUD circle on the right side of the screen.
- * Shows current level in the center, XP below, and a progress ring
+ * Shows the Orion character image inside the circle,
+ * current level in the center, XP below, and a progress ring
  * around the circle representing XP progress toward the next level.
+ *
+ * XP progression:
+ * Level 1 = 20 XP
+ * Level 2 = 24 XP
+ * Level 3 = 29 XP
+ * ...
+ * formula: xpRequired(level) = 20 * Math.pow(1.2, level - 1)
  */
-export function LevelBadge({ level, experience, xpToNext = 1000 }: LevelBadgeProps) {
+export function LevelBadge({ level, experience }: LevelBadgeProps) {
+  const xpToNext = xpRequiredForLevel(level);
   const progress = Math.min(experience / xpToNext, 1);
   const circumference = 2 * Math.PI * 45; // r=45
   const dashOffset = circumference * (1 - progress);
@@ -56,7 +72,7 @@ export function LevelBadge({ level, experience, xpToNext = 1000 }: LevelBadgePro
         />
       </svg>
 
-      {/* Inner content */}
+      {/* Inner circle with Orion character + level info */}
       <div
         style={{
           display: 'flex',
@@ -71,13 +87,30 @@ export function LevelBadge({ level, experience, xpToNext = 1000 }: LevelBadgePro
           height: 96,
           border: '2px solid rgba(255, 215, 0, 0.3)',
           boxShadow: '0 0 20px rgba(255, 215, 0, 0.15)',
+          overflow: 'hidden',
+          position: 'relative',
         }}
       >
-        <span style={{ fontSize: '0.6rem', color: '#8fb5ff', letterSpacing: '0.1em' }}>LEVEL</span>
-        <span style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#fff', lineHeight: 1.1 }}>
+        {/* Orion character image – fits inside the circle */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${ORION_CHARACTER_IMAGE})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            imageRendering: 'pixelated',
+            opacity: 0.35,
+          }}
+        />
+        {/* Level text on top of character */}
+        <span style={{ fontSize: '0.6rem', color: '#8fb5ff', letterSpacing: '0.1em', position: 'relative', zIndex: 1 }}>
+          LEVEL
+        </span>
+        <span style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#fff', lineHeight: 1.1, position: 'relative', zIndex: 1 }}>
           {level}
         </span>
-        <span style={{ fontSize: '0.55rem', color: '#ffd700' }}>
+        <span style={{ fontSize: '0.55rem', color: '#ffd700', position: 'relative', zIndex: 1 }}>
           {experience}/{xpToNext} XP
         </span>
       </div>
