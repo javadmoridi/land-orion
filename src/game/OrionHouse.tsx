@@ -2,7 +2,6 @@ import { useRef, useState } from 'react';
 
 const ORION_HOUSE_IMAGE = '/assets/orion-house.png';
 
-const MAP_GRID = 5;
 const SUB_GRID = 3;
 const HOUSE_SIZE = 2;
 
@@ -17,7 +16,6 @@ interface OrionHouseProps {
   landY: number;
   subX: number;
   subY: number;
-
   unlockedLands: UnlockedLand[];
 
   onMove?: (
@@ -44,11 +42,17 @@ export function OrionHouse({
   });
 
   const [dragging, setDragging] = useState(false);
-  const timer = useRef<number | null>(null);
-  const areaRef = useRef<HTMLDivElement>(null);
 
-  function startDrag(e: React.PointerEvent) {
+  const timer = useRef<number | null>(null);
+  const startPoint = useRef({ x: 0, y: 0 });
+
+  function pointerDown(e: React.PointerEvent) {
     e.preventDefault();
+
+    startPoint.current = {
+      x: e.clientX,
+      y: e.clientY,
+    };
 
     timer.current = window.setTimeout(() => {
       setDragging(true);
@@ -56,58 +60,55 @@ export function OrionHouse({
   }
 
 
-  function moveHouse(e: React.PointerEvent) {
-    if (!dragging || !areaRef.current) return;
+  function pointerMove(e: React.PointerEvent) {
+    if (!dragging) return;
 
-    const box = areaRef.current.getBoundingClientRect();
+    const element = e.currentTarget.parentElement;
+    if (!element) return;
 
-    const tileW = box.width / MAP_GRID;
-    const tileH = box.height / MAP_GRID;
+    const rect = element.getBoundingClientRect();
 
-    const mouseX = e.clientX - box.left;
-    const mouseY = e.clientY - box.top;
-
-
-    let newLandX = Math.floor(mouseX / tileW);
-    let newLandY = Math.floor(mouseY / tileH);
+    // اندازه هر زمین
+    const tileWidth = rect.width / 5;
+    const tileHeight = rect.height / 5;
 
 
-    newLandX = Math.max(0, Math.min(4, newLandX));
-    newLandY = Math.max(0, Math.min(4, newLandY));
+    // پیدا کردن زمین مقصد
+    const mapX = e.clientX - rect.left;
+    const mapY = e.clientY - rect.top;
 
 
-    // اگر زمین باز نیست، حرکت نکن
-    const allowed = unlockedLands.some(
+    const newLandX = Math.floor(mapX / tileWidth);
+    const newLandY = Math.floor(mapY / tileHeight);
+
+
+    // فقط زمین های باز
+    const canMove = unlockedLands.some(
       land =>
         land.x === newLandX &&
         land.y === newLandY
     );
 
-    if (!allowed) return;
+
+    if (!canMove) return;
 
 
-    const insideX = mouseX - newLandX * tileW;
-    const insideY = mouseY - newLandY * tileH;
+    // محل داخل همان زمین
+    const insideX = mapX - newLandX * tileWidth;
+    const insideY = mapY - newLandY * tileHeight;
 
 
     let newSubX = Math.floor(
-      insideX / (tileW / SUB_GRID)
+      insideX / (tileWidth / SUB_GRID)
     );
 
     let newSubY = Math.floor(
-      insideY / (tileH / SUB_GRID)
+      insideY / (tileHeight / SUB_GRID)
     );
 
 
-    newSubX = Math.max(
-      0,
-      Math.min(1, newSubX)
-    );
-
-    newSubY = Math.max(
-      0,
-      Math.min(1, newSubY)
-    );
+    newSubX = Math.max(0, Math.min(1, newSubX));
+    newSubY = Math.max(0, Math.min(1, newSubY));
 
 
     setPosition({
@@ -119,7 +120,7 @@ export function OrionHouse({
   }
 
 
-  function endDrag() {
+  function pointerUp() {
     if (timer.current) {
       clearTimeout(timer.current);
       timer.current = null;
@@ -138,45 +139,42 @@ export function OrionHouse({
   }
 
 
-  const tilePercent = 100 / MAP_GRID;
-
-  const size =
-    tilePercent * (HOUSE_SIZE / SUB_GRID);
-
-
-  const left =
-    position.landX * tilePercent +
-    position.subX * (tilePercent / SUB_GRID);
-
-
-  const top =
-    position.landY * tilePercent +
-    position.subY * (tilePercent / SUB_GRID);
+  // اندازه مثل قبل: 2 خانه از 3 خانه
+  const size = (HOUSE_SIZE / SUB_GRID) * 100;
 
 
   return (
     <div
-      ref={areaRef}
       style={{
         position: 'absolute',
         inset: 0,
-        width: '100%',
-        height: '100%',
         pointerEvents: 'none',
+        zIndex: 20,
       }}
     >
+
       <div
-        onPointerDown={startDrag}
-        onPointerMove={moveHouse}
-        onPointerUp={endDrag}
+        onPointerDown={pointerDown}
+        onPointerMove={pointerMove}
+        onPointerUp={pointerUp}
         style={{
           position: 'absolute',
 
-          left: `${left}%`,
-          top: `${top}%`,
+          // زمین فعلی + جای خانه داخل همان زمین
+          left:
+            `${position.landX * 20 + position.subX * 6.66}%`,
 
-          width: `${size}%`,
-          height: `${size}%`,
+          top:
+            `${position.landY * 20 + position.subY * 6.66}%`,
+
+
+          // اندازه یک زمین تقسیم بر 5
+          width:
+            `${size * 0.2}%`,
+
+          height:
+            `${size * 0.2}%`,
+
 
           backgroundImage:
             `url(${ORION_HOUSE_IMAGE})`,
@@ -193,9 +191,10 @@ export function OrionHouse({
           pointerEvents: 'auto',
           touchAction: 'none',
 
-          zIndex: 20,
+          userSelect: 'none',
         }}
       />
+
     </div>
   );
 }
