@@ -65,7 +65,7 @@ export function meetsUnlockCondition(
 
   for (const item of condition.items) {
     const found = state.inventory.find(
-      (i) => i.id === item.itemId,
+      (i) => i.id === item.itemId
     );
 
     if ((found?.quantity ?? 0) < item.quantity) {
@@ -89,13 +89,15 @@ function backgroundPositionFor(row: number, col: number) {
 
 function backgroundSizeFor() {
   return `${MAP_GRID_SIZE * 100}% ${MAP_GRID_SIZE * 100}%`;
-}interface PlayerIslandProps {
+}
+
+interface PlayerIslandProps {
   level: number;
   resources?: Record<string, number>;
   inventory?: Array<{ id: string; quantity: number }>;
   onUnlockRequest?: (
     pieceIndex: number,
-    condition: UnlockCondition,
+    condition: UnlockCondition
   ) => void;
 }
 
@@ -113,12 +115,11 @@ export function PlayerIsland({
     y: 0,
   });
 
-  const playerState: PlayerUnlockState = {
+  const playerState = {
     level,
     resources,
     inventory,
   };
-
 
   let unlockedCount = 0;
 
@@ -126,7 +127,7 @@ export function PlayerIsland({
     if (
       meetsUnlockCondition(
         conditionFor(i),
-        playerState,
+        playerState
       )
     ) {
       unlockedCount = i + 1;
@@ -134,7 +135,6 @@ export function PlayerIsland({
       break;
     }
   }
-
 
   const cells = Array.from(
     { length: MAX_PIECES },
@@ -149,9 +149,8 @@ export function PlayerIsland({
         active: index < unlockedCount,
         lock: index === unlockedCount,
       };
-    },
+    }
   );
-
 
   const pieceSize =
     `min(${BASE_PIECE_SIZE}px, calc(85vw / 5))`;
@@ -168,22 +167,12 @@ export function PlayerIsland({
       <div
         style={{
           display:'grid',
-          gridTemplateColumns:
-            `repeat(5, ${pieceSize})`,
-          gridTemplateRows:
-            `repeat(5, ${pieceSize})`,
+          gridTemplateColumns:`repeat(5, ${pieceSize})`,
+          gridTemplateRows:`repeat(5, ${pieceSize})`,
         }}
       >
 
-        {cells.map(
-          ({
-            index,
-            row,
-            col,
-            active,
-            lock,
-          }) => {
-
+        {cells.map(({index,row,col,active,lock}) => {
 
           if(active){
 
@@ -192,6 +181,7 @@ export function PlayerIsland({
                 key={index}
                 style={{
                   position:'relative',
+                  overflow:'hidden',
                   backgroundImage:
                     `url(${LAND_MAP_IMAGE})`,
                   backgroundSize:
@@ -203,74 +193,58 @@ export function PlayerIsland({
                 }}
               >
 
-                {/*
-                  خانه فقط روی زمین های باز شده وجود دارد
-                */}
                 {index === houseLand && (
                   <OrionHouse
                     subX={housePosition.x}
                     subY={housePosition.y}
-
                     onMove={(x,y)=>{
-
                       setHousePosition({
                         x,
                         y,
                       });
-
                     }}
-
                   />
                 )}
 
-
-                {/*
-                  با کلیک روی هر زمین باز،
-                  خانه به آن زمین منتقل می شود
-                */}
-                <div
+                <button
                   onClick={()=>{
-
                     setHouseLand(index);
-
                   }}
-
                   style={{
                     position:'absolute',
                     inset:0,
+                    opacity:0,
+                    cursor:'pointer',
                     zIndex:1,
                   }}
                 />
 
               </div>
             );
-          }          if(lock){
+          }
 
-            const condition = conditionFor(index);
+
+          if(lock){
 
             return (
               <div
                 key={index}
                 style={{
-                  border:
-                    '3px dashed rgba(255,215,0,.5)',
+                  border:'3px dashed rgba(255,215,0,.5)',
                   display:'flex',
                   alignItems:'center',
                   justifyContent:'center',
                   flexDirection:'column',
-                  gap:8,
                 }}
               >
 
-                <span>
-                  🔒
-                </span>
+                🔒
 
                 <button
                   onClick={()=>{
                     onUnlockRequest?.(
                       index,
-                      condition,
+                      conditionFor(index)
                     );
                   }}
                 >
@@ -282,15 +256,7 @@ export function PlayerIsland({
           }
 
 
-          return (
-            <div
-              key={index}
-              style={{
-                width:'100%',
-                height:'100%',
-              }}
-            />
-          );
+          return <div key={index}/>;
 
         })}
 
