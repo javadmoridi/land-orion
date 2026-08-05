@@ -1,154 +1,199 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState } from 'react';
 
-// Orion House building sprite
 const ORION_HOUSE_IMAGE = '/assets/orion-house.png';
 
-// Each land tile has a 3x3 sub-grid
+const MAP_GRID = 5;
 const SUB_GRID = 3;
-// Building occupies 2x2 sub-cells inside one land tile
-const HOUSE_SUB_SIZE = 2;
-// Max position in sub-grid (3 - 2 = 1)
-const MAX_SUB_POS = SUB_GRID - HOUSE_SUB_SIZE; // 1
+const HOUSE_SIZE = 2;
 
-interface OrionHouseProps {
-  // Sub-grid position inside the owning land tile (0 or 1 on each axis)
-  subX: number;
-  subY: number;
-  // Callback when the house is moved (for future save system)
-  onMove?: (subX: number, subY: number) => void;
+interface UnlockedLand {
+  index: number;
+  x: number;
+  y: number;
 }
 
-/**
- * Movable Orion House building.
- * - Lives INSIDE one land tile (rendered as a child of that tile).
- * - Occupies 2x2 sub-cells of the tile's 3x3 sub-grid.
- * - Long-press + drag to move, snaps to the tile sub-grid.
- * - Position stored as sub-grid coords for future save system.
- */
-export function OrionHouse({ subX, subY, onMove }: OrionHouseProps) {
-  const [pos, setPos] = useState({ x: subX, y: subY });
-  const [isDragging, setIsDragging] = useState(false);
-  const [longPressActivated, setLongPressActivated] = useState(false);
-  const longPressTimer = useRef<number | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+interface OrionHouseProps {
+  landX: number;
+  landY: number;
+  subX: number;
+  subY: number;
 
-  // Long-press detection (500ms) then enable drag
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+  unlockedLands: UnlockedLand[];
+
+  onMove?: (
+    landX: number,
+    landY: number,
+    subX: number,
+    subY: number
+  ) => void;
+}
+
+export function OrionHouse({
+  landX,
+  landY,
+  subX,
+  subY,
+  unlockedLands,
+  onMove,
+}: OrionHouseProps) {
+  const [position, setPosition] = useState({
+    landX,
+    landY,
+    subX,
+    subY,
+  });
+
+  const [dragging, setDragging] = useState(false);
+  const timer = useRef<number | null>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
+
+  function startDrag(e: React.PointerEvent) {
     e.preventDefault();
-    e.stopPropagation();
-    console.log('[OrionHouse] pointerDown received, pointerId:', e.pointerId);
 
-    // Capture pointer so we receive events even outside the element
-    const target = e.currentTarget as HTMLElement;
-    try {
-      target.setPointerCapture(e.pointerId);
-      console.log('[OrionHouse] pointerCapture set');
-    } catch (err) {
-      console.warn('[OrionHouse] setPointerCapture failed:', err);
-    }
-
-    longPressTimer.current = window.setTimeout(() => {
-      console.log('[OrionHouse] longPress activated, starting drag');
-      setLongPressActivated(true);
-      setIsDragging(true);
+    timer.current = window.setTimeout(() => {
+      setDragging(true);
     }, 500);
-  }, []);
+  }
 
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      e.preventDefault();
 
-      // Cancel long-press timer if finger moves before 500ms
-      if (!longPressActivated && longPressTimer.current) {
-        window.clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-        return;
-      }
+  function moveHouse(e: React.PointerEvent) {
+    if (!dragging || !areaRef.current) return;
 
-      if (!isDragging || !containerRef.current) return;
+    const box = areaRef.current.getBoundingClientRect();
 
-      const container = containerRef.current;
-      const rect = container.getBoundingClientRect();
-      // Size of one sub-cell inside the owning tile
-      const subCellSize = rect.width / SUB_GRID;
+    const tileW = box.width / MAP_GRID;
+    const tileH = box.height / MAP_GRID;
 
-      // Position relative to tile top-left
-      const relX = e.clientX - rect.left;
-      const relY = e.clientY - rect.top;
+    const mouseX = e.clientX - box.left;
+    const mouseY = e.clientY - box.top;
 
-      // Snap to sub-grid (top-left of 2x2 house centered on cursor)
-      const snappedX = Math.floor((relX - (HOUSE_SUB_SIZE * subCellSize) / 2) / subCellSize);
-      const snappedY = Math.floor((relY - (HOUSE_SUB_SIZE * subCellSize) / 2) / subCellSize);
 
-      // Clamp to 0..MAX_SUB_POS
-      const clampedX = Math.max(0, Math.min(snappedX, MAX_SUB_POS));
-      const clampedY = Math.max(0, Math.min(snappedY, MAX_SUB_POS));
+    let newLandX = Math.floor(mouseX / tileW);
+    let newLandY = Math.floor(mouseY / tileH);
 
-      setPos({ x: clampedX, y: clampedY });
-    },
-    [isDragging, longPressActivated],
-  );
 
-  const handlePointerUp = useCallback(() => {
-    if (longPressTimer.current) {
-      window.clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+    newLandX = Math.max(0, Math.min(4, newLandX));
+    newLandY = Math.max(0, Math.min(4, newLandY));
+
+
+    // اگر زمین باز نیست، حرکت نکن
+    const allowed = unlockedLands.some(
+      land =>
+        land.x === newLandX &&
+        land.y === newLandY
+    );
+
+    if (!allowed) return;
+
+
+    const insideX = mouseX - newLandX * tileW;
+    const insideY = mouseY - newLandY * tileH;
+
+
+    let newSubX = Math.floor(
+      insideX / (tileW / SUB_GRID)
+    );
+
+    let newSubY = Math.floor(
+      insideY / (tileH / SUB_GRID)
+    );
+
+
+    newSubX = Math.max(
+      0,
+      Math.min(1, newSubX)
+    );
+
+    newSubY = Math.max(
+      0,
+      Math.min(1, newSubY)
+    );
+
+
+    setPosition({
+      landX: newLandX,
+      landY: newLandY,
+      subX: newSubX,
+      subY: newSubY,
+    });
+  }
+
+
+  function endDrag() {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
     }
-    if (isDragging) {
-      setIsDragging(false);
-      setLongPressActivated(false);
-      // Keep position ready for future save system
-      onMove?.(pos.x, pos.y);
-    } else {
-      setLongPressActivated(false);
-    }
-  }, [isDragging, pos, onMove]);
 
-  const handlePointerCancel = useCallback(() => {
-    if (longPressTimer.current) {
-      window.clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    setIsDragging(false);
-    setLongPressActivated(false);
-  }, []);
+    if (dragging) {
+      setDragging(false);
 
-  // Percentage sizes relative to the owning land tile
-  const houseSizePercent = (HOUSE_SUB_SIZE / SUB_GRID) * 100; // 66.666%
-  const posXPercent = (pos.x / SUB_GRID) * 100;
-  const posYPercent = (pos.y / SUB_GRID) * 100;
+      onMove?.(
+        position.landX,
+        position.landY,
+        position.subX,
+        position.subY
+      );
+    }
+  }
+
+
+  const tilePercent = 100 / MAP_GRID;
+
+  const size =
+    tilePercent * (HOUSE_SIZE / SUB_GRID);
+
+
+  const left =
+    position.landX * tilePercent +
+    position.subX * (tilePercent / SUB_GRID);
+
+
+  const top =
+    position.landY * tilePercent +
+    position.subY * (tilePercent / SUB_GRID);
+
 
   return (
     <div
-      ref={containerRef}
+      ref={areaRef}
       style={{
         position: 'absolute',
         inset: 0,
         width: '100%',
         height: '100%',
+        pointerEvents: 'none',
       }}
     >
       <div
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerCancel}
+        onPointerDown={startDrag}
+        onPointerMove={moveHouse}
+        onPointerUp={endDrag}
         style={{
           position: 'absolute',
-          left: `${posXPercent}%`,
-          top: `${posYPercent}%`,
-          width: `${houseSizePercent}%`,
-          height: `${houseSizePercent}%`,
-          backgroundImage: `url(${ORION_HOUSE_IMAGE})`,
+
+          left: `${left}%`,
+          top: `${top}%`,
+
+          width: `${size}%`,
+          height: `${size}%`,
+
+          backgroundImage:
+            `url(${ORION_HOUSE_IMAGE})`,
+
           backgroundSize: 'cover',
           backgroundPosition: 'center',
+
           imageRendering: 'pixelated',
-          cursor: isDragging ? 'grabbing' : 'grab',
-          userSelect: 'none',
-          touchAction: 'none',
+
+          cursor: dragging
+            ? 'grabbing'
+            : 'grab',
+
           pointerEvents: 'auto',
-          transition: isDragging ? 'none' : 'left 0.15s, top 0.15s',
-          zIndex: isDragging ? 100 : 5,
+          touchAction: 'none',
+
+          zIndex: 20,
         }}
       />
     </div>
