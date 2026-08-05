@@ -12,44 +12,52 @@ export function GameWorld() {
     movePlayer,
   } = useGameStore();
 
-  // Auto-save every 3 seconds (logic preserved, no UI)
+  // Auto-save every 3 seconds
   useEffect(() => {
     if (!playerProfile) return;
+
     const interval = window.setInterval(() => {
       void saveGame();
     }, 3000);
+
     return () => window.clearInterval(interval);
   }, [saveGame, playerProfile]);
 
-  // Keyboard movement (WASD + arrows) – logic preserved, no UI
+  // Keyboard movement
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       let dx = 0;
       let dy = 0;
+
       switch (e.key) {
         case 'ArrowUp':
         case 'w':
         case 'W':
           dy = -1;
           break;
+
         case 'ArrowDown':
         case 's':
         case 'S':
           dy = 1;
           break;
+
         case 'ArrowLeft':
         case 'a':
         case 'A':
           dx = -1;
           break;
+
         case 'ArrowRight':
         case 'd':
         case 'D':
           dx = 1;
           break;
+
         default:
           return;
       }
+
       movePlayer(dx, dy);
     },
     [movePlayer],
@@ -57,7 +65,10 @@ export function GameWorld() {
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [handleKeyDown]);
 
   if (!playerProfile) {
@@ -65,14 +76,21 @@ export function GameWorld() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
-      {/* Full-screen background image */}
+    <div
+      style={{
+        minHeight: '100vh',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
       <OrionBackground />
 
-      {/* Floating level HUD badge */}
-      <LevelBadge level={playerProfile.level} experience={playerProfile.experience} />
+      {/* XP TEST MODE */}
+      <LevelBadge
+        level={1}
+        experience={0}
+      />
 
-      {/* Player island centered in the world */}
       <div
         style={{
           position: 'relative',
@@ -87,7 +105,12 @@ export function GameWorld() {
         <PlayerIsland
           level={playerProfile.level}
           resources={gameState?.resources ?? {}}
-          inventory={gameState?.inventory.map((item) => ({ id: item.id, quantity: item.quantity })) ?? []}
+          inventory={
+            gameState?.inventory.map((item) => ({
+              id: item.id,
+              quantity: item.quantity,
+            })) ?? []
+          }
         />
       </div>
     </div>
