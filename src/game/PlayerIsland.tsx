@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { OrionHouse } from './OrionHouse';
+import { OrionCharacter } from './OrionCharacter';
 
-// Single land image – centered in the background
-const LAND_MAP_IMAGE = '/assets/land-map (2).png';
+const LAND_MAP_IMAGE = '/assets/land-map.png';
 
 interface PlayerIslandProps {
   level: number;
@@ -12,31 +12,29 @@ interface PlayerIslandProps {
 
 export function PlayerIsland(_props: PlayerIslandProps) {
   const [housePosition, setHousePosition] = useState({
-    x: 0,
-    y: 0,
+    x: 35,
+    y: 45,
   });
-
-  // Single land – 85% of the background (15% smaller)
-  const landSize = 'min(85vw, 85vh)';
 
   return (
     <div
       style={{
+        width: '100%',
+        height: '100%',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        width: '100%',
-        height: '100%',
       }}
     >
       <div
         style={{
           position: 'relative',
-          width: landSize,
-          height: landSize,
-          overflow: 'hidden',
-          backgroundImage: `url(${LAND_MAP_IMAGE})`,
-          backgroundSize: 'cover',
+          width: '80%',
+          height: '80%',
+          maxWidth: '900px',
+          maxHeight: '900px',
+          backgroundImage: `url("${LAND_MAP_IMAGE}")`,
+          backgroundSize: 'contain',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
           imageRendering: 'pixelated',
@@ -46,9 +44,14 @@ export function PlayerIsland(_props: PlayerIslandProps) {
           subX={housePosition.x}
           subY={housePosition.y}
           onMove={(x, y) => {
-            setHousePosition({ x, y });
+            setHousePosition({
+              x,
+              y,
+            });
           }}
         />
+
+        <OrionCharacter />
       </div>
     </div>
   );
