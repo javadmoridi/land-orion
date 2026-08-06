@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { OrionHouse } from './OrionHouse';
 import { OrionCharacter } from './OrionCharacter';
+import { PlacementGrid } from './PlacementGrid';
 
 // Single full island image – the whole map is one image (no slicing / unlocking).
 const LAND_MAP_IMAGE = '/assets/land-map.png';
@@ -27,14 +28,15 @@ export function PlayerIsland(_props: PlayerIslandProps) {
         position: 'relative',
       }}
     >
-      {/* Island container: one complete image, ~20% smaller than the background
-          (constrains by width AND height so it is ALWAYS fully visible and never
-          clipped), kept square (1:1) and centered on screen. */}
+      {/* Island container: about 90% of the displayable area, square (1:1),
+          centered on screen, never clipped and never stretched.
+          Layering (z-index): background 0 < island 1 < placement grid 2
+          < buildings/items (house) < characters < UI. */}
       <div
         style={{
           position: 'relative',
-          width: 'min(80vw, 80vh)',
-          maxWidth: '900px',
+          width: 'min(90vw, 86vh)',
+          maxWidth: '1400px',
           aspectRatio: '1 / 1',
           zIndex: 1,
         }}
@@ -57,22 +59,24 @@ export function PlayerIsland(_props: PlayerIslandProps) {
           }}
         />
 
-        {/* Orion House – draggable via long-press, movement limited to the island. */}
-        <OrionHouse
-          subX={housePosition.x}
-          subY={housePosition.y}
-          onMove={(x, y) => {
-            setHousePosition({
-              x,
-              y,
-            });
-          }}
-        />
+        {/* Item placement layer (grid + buildings/items). */}
+        <PlacementGrid>
+          {/* Orion House – draggable via long-press, movement limited to the island.
+              Kept inside the placement layer so it is coordinated with the grid. */}
+          <OrionHouse
+            subX={housePosition.x}
+            subY={housePosition.y}
+            onMove={(x, y) => {
+              setHousePosition({ x, y });
+            }}
+          />
+        </PlacementGrid>
 
-        {/* Orion Character – placed beside the house, idle animation preserved. */}
+        {/* Orion Character – rendered above the grid/buildings layer. */}
         <OrionCharacter leftPercent={70} topPercent={35} sizePercent={30} />
       </div>
     </div>
   );
 }
+
 

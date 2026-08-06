@@ -26,7 +26,7 @@ export function OrionCharacter({
         width: `${sizePercent}%`,
         height: `${sizePercent}%`,
         pointerEvents: 'none',
-        zIndex: 3,
+        zIndex: 4,
       }}
     >
       <style>{`
