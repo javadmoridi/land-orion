@@ -4,17 +4,21 @@ const ORION_BG_IMAGE = '/assets/orion-background.jpg';
 
 export function OrionBackground() {
   return (
-    <div
+    <img
+      src={ORION_BG_IMAGE}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundImage: `url(${ORION_BG_IMAGE})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        objectPosition: 'center',
         zIndex: 0,
+        pointerEvents: 'none',
       }}
-      aria-hidden="true"
     />
   );
 }

@@ -81,7 +81,7 @@ export function OrionHouse({
         position: 'absolute',
         inset: 0,
         pointerEvents: 'none',
-        zIndex: 20,
+        zIndex: 2,
       }}
     >
       <div
@@ -94,15 +94,26 @@ export function OrionHouse({
           top: `${top}%`,
           width: `${size}%`,
           height: `${size}%`,
-          backgroundImage: `url(${ORION_HOUSE_IMAGE})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          imageRendering: 'pixelated',
           cursor: dragging ? 'grabbing' : 'grab',
           pointerEvents: 'auto',
           touchAction: 'none',
         }}
-      />
+      >
+        <img
+          src={ORION_HOUSE_IMAGE}
+          alt="Orion House"
+          draggable={false}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center',
+            imageRendering: 'pixelated',
+            pointerEvents: 'none',
+            display: 'block',
+          }}
+        />
+      </div>
     </div>
   );
 }
