@@ -30,7 +30,7 @@ export function PlayerIsland(_props: PlayerIslandProps) {
       <div
         style={{
           position: 'relative',
-          width: 'min(95vw, 90vh)',
+          width: 'min(90vw, 90vh)',
           maxWidth: '1400px',
           aspectRatio: '1 / 1',
           zIndex: 1,
@@ -45,12 +45,13 @@ export function PlayerIsland(_props: PlayerIslandProps) {
             inset: 0,
             width: '100%',
             height: '100%',
-            objectFit: 'fill',
+            objectFit: 'contain',
             imageRendering: 'pixelated',
             pointerEvents: 'none',
           }}
         />
 
+        {/* 14x14 = 196 slots */}
         <PlacementGrid>
           <OrionHouse
             subX={housePosition.x}

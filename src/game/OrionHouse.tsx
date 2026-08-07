@@ -2,11 +2,12 @@ import { useRef, useState } from 'react';
 
 const ORION_HOUSE_IMAGE = '/assets/orion-house.png';
 
-// Island placement grid: 14x14 = 196 slots (~200)
-const SUB_GRID = 14;
+// Island grid
+const GRID_SIZE = 14;
 
-// Orion house occupies 3x3 slots
-const HOUSE_SIZE = 3;
+// House takes 3x3 slots from the 196 slots
+const HOUSE_WIDTH = 3;
+const HOUSE_HEIGHT = 3;
 
 interface OrionHouseProps {
   subX?: number;
@@ -20,8 +21,8 @@ export function OrionHouse({
   onMove,
 }: OrionHouseProps) {
   const [position, setPosition] = useState({
-    subX,
-    subY,
+    x: subX,
+    y: subY,
   });
 
   const [dragging, setDragging] = useState(false);
@@ -42,19 +43,31 @@ export function OrionHouse({
 
     const rect = map.getBoundingClientRect();
 
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-    let newSubX = Math.floor(mouseX / (rect.width / SUB_GRID));
-    let newSubY = Math.floor(mouseY / (rect.height / SUB_GRID));
+    let gridX = Math.floor(
+      x / (rect.width / GRID_SIZE),
+    );
 
-    // Keep 3x3 house inside 14x14 grid
-    newSubX = Math.max(0, Math.min(SUB_GRID - HOUSE_SIZE, newSubX));
-    newSubY = Math.max(0, Math.min(SUB_GRID - HOUSE_SIZE, newSubY));
+    let gridY = Math.floor(
+      y / (rect.height / GRID_SIZE),
+    );
+
+    // keep house inside 14x14 grid
+    gridX = Math.max(
+      0,
+      Math.min(GRID_SIZE - HOUSE_WIDTH, gridX),
+    );
+
+    gridY = Math.max(
+      0,
+      Math.min(GRID_SIZE - HOUSE_HEIGHT, gridY),
+    );
 
     setPosition({
-      subX: newSubX,
-      subY: newSubY,
+      x: gridX,
+      y: gridY,
     });
   }
 
@@ -66,15 +79,22 @@ export function OrionHouse({
 
     if (dragging) {
       setDragging(false);
-      onMove?.(position.subX, position.subY);
+      onMove?.(position.x, position.y);
     }
   }
 
-  // House size = 3 of 14 grid cells
-  const size = (HOUSE_SIZE / SUB_GRID) * 100;
+  // Size based on occupied grid slots
+  const widthPercent =
+    (HOUSE_WIDTH / GRID_SIZE) * 100;
 
-  const left = position.subX * (100 / SUB_GRID);
-  const top = position.subY * (100 / SUB_GRID);
+  const heightPercent =
+    (HOUSE_HEIGHT / GRID_SIZE) * 100;
+
+  const leftPercent =
+    (position.x / GRID_SIZE) * 100;
+
+  const topPercent =
+    (position.y / GRID_SIZE) * 100;
 
   return (
     <div
@@ -91,11 +111,17 @@ export function OrionHouse({
         onPointerUp={pointerUp}
         style={{
           position: 'absolute',
-          left: `${left}%`,
-          top: `${top}%`,
-          width: `${size}%`,
-          height: `${size}%`,
-          cursor: dragging ? 'grabbing' : 'grab',
+
+          left: `${leftPercent}%`,
+          top: `${topPercent}%`,
+
+          width: `${widthPercent}%`,
+          height: `${heightPercent}%`,
+
+          cursor: dragging
+            ? 'grabbing'
+            : 'grab',
+
           pointerEvents: 'auto',
           touchAction: 'none',
         }}
@@ -107,8 +133,7 @@ export function OrionHouse({
           style={{
             width: '100%',
             height: '100%',
-            objectFit: 'cover',
-            objectPosition: 'center',
+            objectFit: 'contain',
             imageRendering: 'pixelated',
             pointerEvents: 'none',
             display: 'block',
