@@ -2,8 +2,11 @@ import { useRef, useState } from 'react';
 
 const ORION_HOUSE_IMAGE = '/assets/orion-house.png';
 
-const SUB_GRID = 3;
-const HOUSE_SIZE = 2;
+// Island placement grid: 14x14 = 196 slots (~200)
+const SUB_GRID = 14;
+
+// Orion house occupies 3x3 slots
+const HOUSE_SIZE = 3;
 
 interface OrionHouseProps {
   subX?: number;
@@ -42,11 +45,10 @@ export function OrionHouse({
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // Single land – house moves within the whole land
     let newSubX = Math.floor(mouseX / (rect.width / SUB_GRID));
     let newSubY = Math.floor(mouseY / (rect.height / SUB_GRID));
 
-    // House is 2x2 – keep it inside the land
+    // Keep 3x3 house inside 14x14 grid
     newSubX = Math.max(0, Math.min(SUB_GRID - HOUSE_SIZE, newSubX));
     newSubY = Math.max(0, Math.min(SUB_GRID - HOUSE_SIZE, newSubY));
 
@@ -68,10 +70,9 @@ export function OrionHouse({
     }
   }
 
-  // House = 2 parts of 3 parts of the land
+  // House size = 3 of 14 grid cells
   const size = (HOUSE_SIZE / SUB_GRID) * 100;
 
-  // House position inside the land
   const left = position.subX * (100 / SUB_GRID);
   const top = position.subY * (100 / SUB_GRID);
 
