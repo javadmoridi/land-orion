@@ -1,0 +1,2 @@
+src\main.tsx:import { Buffer } from 'buffer';
+src\main.tsx:globalThis.Buffer = Buffer;
