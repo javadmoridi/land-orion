@@ -2,10 +2,8 @@ import { useRef, useState } from 'react';
 
 const ORION_HOUSE_IMAGE = '/assets/orion-house.png';
 
-// Island grid
 const GRID_SIZE = 14;
 
-// House takes 3x3 slots from the 196 slots
 const HOUSE_WIDTH = 3;
 const HOUSE_HEIGHT = 3;
 
@@ -38,36 +36,37 @@ export function OrionHouse({
   function pointerMove(e: React.PointerEvent) {
     if (!dragging) return;
 
-    const map = e.currentTarget.parentElement;
-    if (!map) return;
+    const gridLayer =
+      e.currentTarget.parentElement?.parentElement;
 
-    const rect = map.getBoundingClientRect();
+    if (!gridLayer) return;
 
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const rect = gridLayer.getBoundingClientRect();
 
-    let gridX = Math.floor(
-      x / (rect.width / GRID_SIZE),
+    const slotWidth = rect.width / GRID_SIZE;
+    const slotHeight = rect.height / GRID_SIZE;
+
+    let x = Math.floor(
+      (e.clientX - rect.left) / slotWidth
     );
 
-    let gridY = Math.floor(
-      y / (rect.height / GRID_SIZE),
+    let y = Math.floor(
+      (e.clientY - rect.top) / slotHeight
     );
 
-    // keep house inside 14x14 grid
-    gridX = Math.max(
+    x = Math.max(
       0,
-      Math.min(GRID_SIZE - HOUSE_WIDTH, gridX),
+      Math.min(GRID_SIZE - HOUSE_WIDTH, x)
     );
 
-    gridY = Math.max(
+    y = Math.max(
       0,
-      Math.min(GRID_SIZE - HOUSE_HEIGHT, gridY),
+      Math.min(GRID_SIZE - HOUSE_HEIGHT, y)
     );
 
     setPosition({
-      x: gridX,
-      y: gridY,
+      x,
+      y,
     });
   }
 
@@ -83,7 +82,6 @@ export function OrionHouse({
     }
   }
 
-  // Size based on occupied grid slots
   const widthPercent =
     (HOUSE_WIDTH / GRID_SIZE) * 100;
 
@@ -101,7 +99,6 @@ export function OrionHouse({
       style={{
         position: 'absolute',
         inset: 0,
-        pointerEvents: 'none',
         zIndex: 2,
       }}
     >
@@ -122,7 +119,6 @@ export function OrionHouse({
             ? 'grabbing'
             : 'grab',
 
-          pointerEvents: 'auto',
           touchAction: 'none',
         }}
       >

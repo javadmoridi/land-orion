@@ -17,8 +17,8 @@ export function PlacementGrid({
       style={{
         position: 'absolute',
         inset: 0,
-        zIndex: 2,
-        pointerEvents: 'none',
+        width: '100%',
+        height: '100%',
       }}
     >
       {/* 14x14 = 196 placement slots */}
@@ -29,6 +29,7 @@ export function PlacementGrid({
           display: 'grid',
           gridTemplateColumns: `repeat(${GRID_SIZE}, 1fr)`,
           gridTemplateRows: `repeat(${GRID_SIZE}, 1fr)`,
+          pointerEvents: 'none',
         }}
       >
         {slots.map((slot) => (
@@ -52,7 +53,8 @@ export function PlacementGrid({
         style={{
           position: 'absolute',
           inset: 0,
-          pointerEvents: 'none',
+          width: '100%',
+          height: '100%',
         }}
       >
         {children}

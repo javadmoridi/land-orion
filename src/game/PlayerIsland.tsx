@@ -33,7 +33,7 @@ export function PlayerIsland(_props: PlayerIslandProps) {
           width: 'min(90vw, 90vh)',
           maxWidth: '1400px',
           aspectRatio: '1 / 1',
-          zIndex: 1,
+          overflow: 'hidden',
         }}
       >
         <img
@@ -45,31 +45,39 @@ export function PlayerIsland(_props: PlayerIslandProps) {
             inset: 0,
             width: '100%',
             height: '100%',
-            objectFit: 'contain',
+            objectFit: 'fill',
             imageRendering: 'pixelated',
             pointerEvents: 'none',
           }}
         />
 
-        {/* 14x14 = 196 slots */}
-        <PlacementGrid>
-          <OrionHouse
-            subX={housePosition.x}
-            subY={housePosition.y}
-            onMove={(x, y) => {
-              setHousePosition({
-                x,
-                y,
-              });
-            }}
-          />
-        </PlacementGrid>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+          }}
+        >
+          <PlacementGrid>
+            <OrionHouse
+              subX={housePosition.x}
+              subY={housePosition.y}
+              onMove={(x, y) => {
+                setHousePosition({
+                  x,
+                  y,
+                });
+              }}
+            />
+          </PlacementGrid>
 
-        <OrionCharacter
-          leftPercent={70}
-          topPercent={35}
-          sizePercent={30}
-        />
+          <OrionCharacter
+            leftPercent={70}
+            topPercent={35}
+            sizePercent={30}
+          />
+        </div>
       </div>
     </div>
   );
