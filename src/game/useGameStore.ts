@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { BackendSavePayload, GameState, PlayerProfile, WalletSession } from '../types';
+import type { BackendSavePayload, GameState, InventoryItem, PlayerProfile, WalletSession } from '../types';
 import { findPlayerByWallet, createNewPlayer, loadPlayerData, savePlayerData } from '../backend/supabaseService';
 import type { ConnectionStatus } from '../wallet/walletService';
 
@@ -39,6 +39,7 @@ interface GameStoreState {
   movePlayer: (dx: number, dy: number) => void;
   interactWithTile: (tile: WorldTile) => void;
   selectTile: (tile: WorldTile | null) => void;
+  addToInventory: (item: InventoryItem) => void;
 }
 
 const GRID_SIZE = 10;
@@ -251,5 +252,29 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   },
   selectTile: (tile) => {
     set({ selectedTile: tile });
+  },
+  addToInventory: (item) => {
+    const { gameState, playerProfile } = get();
+    const inventory = gameState?.inventory ?? playerProfile?.inventory ?? [];
+
+    const existing = inventory.find((i) => i.id === item.id && i.type === item.type);
+    const next = existing
+      ? inventory.map((i) => (i === existing ? { ...i, quantity: i.quantity + item.quantity } : i))
+      : [...inventory, item];
+
+    set({
+      gameState: gameState
+        ? { ...gameState, inventory: next }
+        : {
+            playerId: playerProfile?.id ?? 'player',
+            progress: { completedMissions: [], currentMissionId: 'intro-mission', lastAction: 'bought-egg' },
+            inventory: next,
+            resources: {},
+            currency: {},
+            status: 'in-game',
+          },
+    });
+
+    void get().saveGame();
   },
 }));

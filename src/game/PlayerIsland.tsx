@@ -3,6 +3,9 @@ import { OrionHouse } from './OrionHouse';
 import { PlacementGrid } from './PlacementGrid';
 import { SeedNest } from './SeedNest';
 import { EggNest } from './EggNest';
+import { EggShop } from './buildings/EggShop';
+import { Incubator } from './buildings/Incubator';
+import { Kitchen } from './buildings/Kitchen';
 
 const LAND_MAP_IMAGE = '/assets/land-map.png';
 
@@ -98,6 +101,21 @@ export function PlayerIsland(_props: PlayerIslandProps) {
             <EggNest
               x={9}
               y={3}
+            />
+
+            <EggShop
+              x={3}
+              y={9}
+            />
+
+            <Incubator
+              x={10}
+              y={5}
+            />
+
+            <Kitchen
+              x={9}
+              y={9}
             />
 
           </PlacementGrid>

@@ -162,6 +162,8 @@ interface ResourceStoreState {
   initialize: () => Promise<void>;
   persist: () => Promise<void>;
   addCoins: (amount: number) => void;
+  /** Tries to spend coins; returns false if the balance is too low. */
+  spendCoins: (amount: number) => boolean;
   addTokens: (amount: number) => void;
   claimQuest: (questId: string) => void;
   canClaimQuest: (questId: string) => boolean;
@@ -205,6 +207,15 @@ export const useResourceStore = create<ResourceStoreState>((set, get) => ({
       resources: { ...s.resources, coins: s.resources.coins + amount },
     }));
     void get().persist();
+  },
+
+  spendCoins: (amount) => {
+    if (amount < 0 || get().resources.coins < amount) return false;
+    set((s) => ({
+      resources: { ...s.resources, coins: s.resources.coins - amount },
+    }));
+    void get().persist();
+    return true;
   },
 
   addTokens: (amount) => {
