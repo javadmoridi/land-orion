@@ -5,9 +5,7 @@ import { Buffer } from 'buffer';
 import App from './App';
 import './styles.css';
 
-if (typeof window !== 'undefined') {
-  window.Buffer = Buffer;
-}
+globalThis.Buffer = Buffer;
 
 ReactDOM.createRoot(
   document.getElementById('root')!
