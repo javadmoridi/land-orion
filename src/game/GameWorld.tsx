@@ -1,8 +1,11 @@
 import { useEffect, useCallback } from 'react';
 import { useGameStore } from './useGameStore';
+import { useResourceStore } from '../economy/resourceStore';
 import { OrionBackground } from './OrionBackground';
 import { PlayerIsland } from './PlayerIsland';
 import { LevelBadge } from './LevelBadge';
+import { ResourceDisplay } from './ResourceDisplay';
+import { QuestButton } from './QuestButton';
 
 export function GameWorld() {
   const {
@@ -11,6 +14,13 @@ export function GameWorld() {
     saveGame,
     movePlayer,
   } = useGameStore();
+
+  const initializeResources = useResourceStore((s) => s.initialize);
+
+  // Load resource balances once (local storage for now, Supabase later).
+  useEffect(() => {
+    void initializeResources();
+  }, [initializeResources]);
 
   // Auto-save every 3 seconds
   useEffect(() => {
@@ -90,6 +100,12 @@ export function GameWorld() {
         level={1}
         experience={0}
       />
+
+      {/* Player resource HUD (coins + Orion Token) below the level circle */}
+      <ResourceDisplay />
+
+      {/* Floating quest button on the left side */}
+      <QuestButton />
 
       <div
         style={{
