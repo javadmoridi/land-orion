@@ -10,7 +10,6 @@ import {
 
 import {
   calcTonAmountForGems,
-  gemsToUsd,
 } from '../economy/tonPriceService';
 
 import {
@@ -18,12 +17,10 @@ import {
   TON_RECEIVER_ADDRESS,
 } from '../economy/tonVerificationService';
 
-
 interface BuyGemsPanelProps {
   open: boolean;
   onClose: () => void;
 }
-
 
 export function BuyGemsPanel({
   open,
@@ -40,9 +37,7 @@ export function BuyGemsPanel({
   const [selected, setSelected] =
     useState<GemPackage | null>(null);
 
-
   if (!open) return null;
-
 
   const panelStyle: CSSProperties = {
     width: 'min(440px, 100%)',
@@ -56,27 +51,21 @@ export function BuyGemsPanel({
     padding: '1.25rem',
   };
 
-
   async function handleBuy(pkg: GemPackage) {
-
     setSelected(pkg);
 
     await purchaseGems(
       pkg.gems,
       async (gemsToBuy) => {
-
         return sendGemPaymentAndVerify(
           tonConnectUI,
           gemsToBuy,
         );
-
       }
     );
   }
 
-
   return (
-
     <div
       style={{
         position: 'fixed',
@@ -93,9 +82,7 @@ export function BuyGemsPanel({
 
       <div
         style={panelStyle}
-        onClick={(e) =>
-          e.stopPropagation()
-        }
+        onClick={(e) => e.stopPropagation()}
       >
 
         <div
@@ -106,14 +93,9 @@ export function BuyGemsPanel({
           }}
         >
 
-          <h2
-            style={{
-              color:'#8a5cf5',
-            }}
-          >
-            🛒 Buy Gems
+          <h2 style={{color:'#8a5cf5'}}>
+            💎 Buy Gems
           </h2>
-
 
           <button
             onClick={onClose}
@@ -139,7 +121,6 @@ export function BuyGemsPanel({
             color:'#9fb0d0',
           }}
         >
-
           💎 Your Gems:
           {' '}
           <strong>
@@ -149,9 +130,7 @@ export function BuyGemsPanel({
           <br />
 
           1 Gem = 0.01 TON
-
         </p>
-
 
 
         <div
@@ -164,14 +143,8 @@ export function BuyGemsPanel({
 
           {GEM_PACKAGES.map((pkg)=>{
 
-            const usd =
-              gemsToUsd(pkg.gems);
-
             const ton =
-              calcTonAmountForGems(
-                pkg.gems
-              );
-
+              calcTonAmountForGems(pkg.gems);
 
             return (
 
@@ -184,7 +157,6 @@ export function BuyGemsPanel({
                   gap:'0.5rem',
                   padding:'0.7rem 0.9rem',
                   borderRadius:10,
-
                   background:
                     selected?.id === pkg.id
                     ? 'rgba(138,92,245,0.15)'
@@ -203,17 +175,13 @@ export function BuyGemsPanel({
                     color:'#9fb0d0',
                   }}
                 >
-                  {usd.toFixed(2)} USD
-                  <br />
                   {ton.toFixed(2)} TON
                 </div>
 
 
                 <button
                   disabled={buying}
-                  onClick={() =>
-                    handleBuy(pkg)
-                  }
+                  onClick={() => handleBuy(pkg)}
                   style={{
                     background:'#8a5cf5',
                     color:'#fff',
@@ -231,7 +199,6 @@ export function BuyGemsPanel({
                   }
                 </button>
 
-
               </div>
 
             );
@@ -239,7 +206,6 @@ export function BuyGemsPanel({
           })}
 
         </div>
-
 
 
         {lastPurchase && (
@@ -256,17 +222,14 @@ export function BuyGemsPanel({
                 : 'rgba(255,80,80,0.2)',
             }}
           >
-
             {
               lastPurchase.ok
               ? `✅ ${lastPurchase.gems} Gems added`
               : lastPurchase.error
             }
-
           </div>
 
         )}
-
 
 
         <p
@@ -286,6 +249,5 @@ export function BuyGemsPanel({
       </div>
 
     </div>
-
   );
 }

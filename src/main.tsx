@@ -1,12 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { Buffer } from 'buffer';
+
 import App from './App';
 import './styles.css';
 
-import { Buffer } from 'buffer';
-
 if (typeof window !== 'undefined') {
-  (window as unknown as { Buffer: typeof Buffer }).Buffer = Buffer;
+  window.Buffer = Buffer;
 }
 
 ReactDOM.createRoot(
