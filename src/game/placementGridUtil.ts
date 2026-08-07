@@ -15,6 +15,11 @@ export interface GridPoint {
   y: number;
 }
 
+export interface ItemSize {
+  width: number;
+  height: number;
+}
+
 // Create all 196 land slots
 export function createPlacementGrid(
   size: number = GRID_SIZE,
@@ -34,8 +39,8 @@ export function createPlacementGrid(
   return slots;
 }
 
+
 // Convert grid position to percent
-// Example: item at x=3 y=3 on 14x14 grid
 export function gridSlotToPercent(
   x: number,
   y: number,
@@ -47,6 +52,72 @@ export function gridSlotToPercent(
   };
 }
 
+
+// Get all slots occupied by an item
+export function getOccupiedSlots(
+  x: number,
+  y: number,
+  item: ItemSize,
+): GridSlot[] {
+  const slots: GridSlot[] = [];
+
+  for (let row = 0; row < item.height; row++) {
+    for (let col = 0; col < item.width; col++) {
+      slots.push({
+        x: x + col,
+        y: y + row,
+        id: `slot-${x + col}-${y + row}`,
+      });
+    }
+  }
+
+  return slots;
+}
+
+
+// Check item stays inside 14x14 island
+export function isInsideGrid(
+  x: number,
+  y: number,
+  item: ItemSize,
+): boolean {
+  return (
+    x >= 0 &&
+    y >= 0 &&
+    x + item.width <= GRID_SIZE &&
+    y + item.height <= GRID_SIZE
+  );
+}
+
+
+// Check if item can be placed
+export function canPlaceItem(
+  x: number,
+  y: number,
+  item: ItemSize,
+  occupied: GridSlot[],
+): boolean {
+
+  if (!isInsideGrid(x, y, item)) {
+    return false;
+  }
+
+  const newSlots = getOccupiedSlots(
+    x,
+    y,
+    item,
+  );
+
+  return !newSlots.some((newSlot) =>
+    occupied.some(
+      (slot) =>
+        slot.x === newSlot.x &&
+        slot.y === newSlot.y,
+    ),
+  );
+}
+
+
 // Convert mouse/touch position to grid slot
 export function pointerToGridSlot(
   rect: DOMRect,
@@ -54,6 +125,7 @@ export function pointerToGridSlot(
   clientY: number,
   size: number = GRID_SIZE,
 ): GridSlot {
+
   const relativeX = Math.max(
     0,
     Math.min(1, (clientX - rect.left) / rect.width),

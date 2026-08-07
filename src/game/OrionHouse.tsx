@@ -1,4 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { usePlacementGrid } from './PlacementGrid';
+import { canPlaceItem } from './placementGridUtil';
 
 const ORION_HOUSE_IMAGE = '/assets/orion-house.png';
 
@@ -18,6 +20,7 @@ export function OrionHouse({
   subY = 0,
   onMove,
 }: OrionHouseProps) {
+
   const [position, setPosition] = useState({
     x: subX,
     y: subY,
@@ -32,7 +35,25 @@ export function OrionHouse({
     y: 0,
   });
 
-  function pointerDown(e: React.PointerEvent<HTMLDivElement>) {
+  const placement = usePlacementGrid();
+
+  const occupied = placement?.occupied ?? [];
+
+
+  useEffect(() => {
+    placement?.registerItem(
+      position.x,
+      position.y,
+      {
+        width: HOUSE_WIDTH,
+        height: HOUSE_HEIGHT,
+      }
+    );
+  }, []);
+
+
+  function pointerDown(e: React.PointerEvent) {
+
     const target = e.currentTarget;
 
     const rect = target.getBoundingClientRect();
@@ -42,37 +63,60 @@ export function OrionHouse({
       y: e.clientY - rect.top,
     };
 
+
     timer.current = window.setTimeout(() => {
+
       setDragging(true);
-      target.setPointerCapture(e.pointerId);
+
+      target.setPointerCapture(
+        e.pointerId
+      );
+
     }, 500);
   }
 
-  function pointerMove(e: React.PointerEvent<HTMLDivElement>) {
+
+  function pointerMove(e: React.PointerEvent) {
+
     if (!dragging) return;
+
 
     const gridLayer =
       e.currentTarget.parentElement?.parentElement;
 
+
     if (!gridLayer) return;
 
-    const rect = gridLayer.getBoundingClientRect();
 
-    const slotWidth = rect.width / GRID_SIZE;
-    const slotHeight = rect.height / GRID_SIZE;
+    const rect =
+      gridLayer.getBoundingClientRect();
 
-    const houseWidth = slotWidth * HOUSE_WIDTH;
-    const houseHeight = slotHeight * HOUSE_HEIGHT;
+
+    const slotWidth =
+      rect.width / GRID_SIZE;
+
+    const slotHeight =
+      rect.height / GRID_SIZE;
+
+
+    const houseWidth =
+      slotWidth * HOUSE_WIDTH;
+
+    const houseHeight =
+      slotHeight * HOUSE_HEIGHT;
+
 
     let pixelX =
       e.clientX -
       rect.left -
       dragOffset.current.x;
 
+
     let pixelY =
       e.clientY -
       rect.top -
       dragOffset.current.y;
+
 
     pixelX = Math.max(
       0,
@@ -82,6 +126,7 @@ export function OrionHouse({
       )
     );
 
+
     pixelY = Math.max(
       0,
       Math.min(
@@ -90,13 +135,14 @@ export function OrionHouse({
       )
     );
 
-    let gridX = Math.round(
-      pixelX / slotWidth
-    );
 
-    let gridY = Math.round(
-      pixelY / slotHeight
-    );
+    let gridX =
+      Math.round(pixelX / slotWidth);
+
+
+    let gridY =
+      Math.round(pixelY / slotHeight);
+
 
     gridX = Math.max(
       0,
@@ -106,6 +152,7 @@ export function OrionHouse({
       )
     );
 
+
     gridY = Math.max(
       0,
       Math.min(
@@ -114,45 +161,83 @@ export function OrionHouse({
       )
     );
 
+
+    const canMove = canPlaceItem(
+      gridX,
+      gridY,
+      {
+        width: HOUSE_WIDTH,
+        height: HOUSE_HEIGHT,
+      },
+      occupied.filter(
+        (slot) =>
+          !(
+            slot.x >= position.x &&
+            slot.x < position.x + HOUSE_WIDTH &&
+            slot.y >= position.y &&
+            slot.y < position.y + HOUSE_HEIGHT
+          )
+      )
+    );
+
+
+    if (!canMove) {
+      return;
+    }
+
+
     setPosition({
       x: gridX,
       y: gridY,
     });
+
   }
 
-  function pointerUp(
-    e: React.PointerEvent<HTMLDivElement>
-  ) {
+
+  function pointerUp(e: React.PointerEvent) {
+
     if (timer.current) {
+
       clearTimeout(timer.current);
+
       timer.current = null;
     }
 
+
     if (dragging) {
+
       setDragging(false);
+
 
       e.currentTarget.releasePointerCapture(
         e.pointerId
       );
 
+
       onMove?.(
         position.x,
         position.y
       );
+
     }
   }
+
 
   const widthPercent =
     (HOUSE_WIDTH / GRID_SIZE) * 100;
 
+
   const heightPercent =
     (HOUSE_HEIGHT / GRID_SIZE) * 100;
+
 
   const leftPercent =
     (position.x / GRID_SIZE) * 100;
 
+
   const topPercent =
     (position.y / GRID_SIZE) * 100;
+
 
   return (
     <div
@@ -163,10 +248,12 @@ export function OrionHouse({
         pointerEvents: 'none',
       }}
     >
+
       <div
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}
+
         style={{
           position: 'absolute',
 
@@ -181,23 +268,33 @@ export function OrionHouse({
             : 'grab',
 
           touchAction: 'none',
+
           pointerEvents: 'auto',
         }}
       >
+
         <img
           src={ORION_HOUSE_IMAGE}
           alt="Orion House"
+
           draggable={false}
+
           style={{
             width: '100%',
             height: '100%',
+
             objectFit: 'contain',
+
             imageRendering: 'pixelated',
+
             pointerEvents: 'none',
+
             display: 'block',
           }}
         />
+
       </div>
+
     </div>
   );
 }

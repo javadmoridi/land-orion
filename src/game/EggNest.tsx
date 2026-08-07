@@ -1,3 +1,6 @@
+import { useEffect } from 'react';
+import { usePlacementGrid } from './PlacementGrid';
+
 const IMAGE = '/assets/egg-nest.png';
 
 const GRID_SIZE = 14;
@@ -12,11 +15,30 @@ export function EggNest({
   x = 9,
   y = 3,
 }: Props) {
+
+  const placement = usePlacementGrid();
+
+
+  useEffect(() => {
+
+    placement?.registerItem(
+      x,
+      y,
+      {
+        width: SIZE,
+        height: SIZE,
+      }
+    );
+
+  }, []);
+
+
   return (
     <img
       src={IMAGE}
       alt="Egg Nest"
       draggable={false}
+
       style={{
         position: 'absolute',
 
@@ -27,7 +49,9 @@ export function EggNest({
         height: `${(SIZE / GRID_SIZE) * 100}%`,
 
         objectFit: 'contain',
+
         imageRendering: 'pixelated',
+
         zIndex: 3,
       }}
     />

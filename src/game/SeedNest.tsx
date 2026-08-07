@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { usePlacementGrid } from './PlacementGrid';
 
 const IMAGE = '/assets/seed-nest.png';
 
 const GRID_SIZE = 14;
+
 const SIZE = 2;
 
 interface Props {
@@ -14,16 +16,35 @@ export function SeedNest({
   x = 3,
   y = 3,
 }: Props) {
+
   const [position] = useState({
     x,
     y,
   });
+
+  const placement = usePlacementGrid();
+
+
+  useEffect(() => {
+
+    placement?.registerItem(
+      position.x,
+      position.y,
+      {
+        width: SIZE,
+        height: SIZE,
+      }
+    );
+
+  }, []);
+
 
   return (
     <img
       src={IMAGE}
       alt="Seed Nest"
       draggable={false}
+
       style={{
         position: 'absolute',
 
@@ -34,7 +55,9 @@ export function SeedNest({
         height: `${(SIZE / GRID_SIZE) * 100}%`,
 
         objectFit: 'contain',
+
         imageRendering: 'pixelated',
+
         zIndex: 3,
       }}
     />
