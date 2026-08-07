@@ -27,6 +27,7 @@ export function OrionHouse({
   });
 
   const [dragging, setDragging] = useState(false);
+  const [openHouse, setOpenHouse] = useState(false);
 
   const timer = useRef<number | null>(null);
 
@@ -54,9 +55,8 @@ export function OrionHouse({
 
   function pointerDown(e: React.PointerEvent) {
 
-    const target = e.currentTarget;
-
-    const rect = target.getBoundingClientRect();
+    const rect =
+      e.currentTarget.getBoundingClientRect();
 
     dragOffset.current = {
       x: e.clientX - rect.left,
@@ -68,7 +68,7 @@ export function OrionHouse({
 
       setDragging(true);
 
-      target.setPointerCapture(
+      e.currentTarget.setPointerCapture(
         e.pointerId
       );
 
@@ -99,49 +99,22 @@ export function OrionHouse({
       rect.height / GRID_SIZE;
 
 
-    const houseWidth =
-      slotWidth * HOUSE_WIDTH;
-
-    const houseHeight =
-      slotHeight * HOUSE_HEIGHT;
-
-
-    let pixelX =
-      e.clientX -
-      rect.left -
-      dragOffset.current.x;
-
-
-    let pixelY =
-      e.clientY -
-      rect.top -
-      dragOffset.current.y;
-
-
-    pixelX = Math.max(
-      0,
-      Math.min(
-        rect.width - houseWidth,
-        pixelX
-      )
+    let gridX = Math.round(
+      (
+        e.clientX -
+        rect.left -
+        dragOffset.current.x
+      ) / slotWidth
     );
 
 
-    pixelY = Math.max(
-      0,
-      Math.min(
-        rect.height - houseHeight,
-        pixelY
-      )
+    let gridY = Math.round(
+      (
+        e.clientY -
+        rect.top -
+        dragOffset.current.y
+      ) / slotHeight
     );
-
-
-    let gridX =
-      Math.round(pixelX / slotWidth);
-
-
-    let gridY =
-      Math.round(pixelY / slotHeight);
 
 
     gridX = Math.max(
@@ -181,9 +154,7 @@ export function OrionHouse({
     );
 
 
-    if (!canMove) {
-      return;
-    }
+    if (!canMove) return;
 
 
     setPosition({
@@ -197,9 +168,7 @@ export function OrionHouse({
   function pointerUp(e: React.PointerEvent) {
 
     if (timer.current) {
-
       clearTimeout(timer.current);
-
       timer.current = null;
     }
 
@@ -207,7 +176,6 @@ export function OrionHouse({
     if (dragging) {
 
       setDragging(false);
-
 
       e.currentTarget.releasePointerCapture(
         e.pointerId
@@ -219,82 +187,129 @@ export function OrionHouse({
         position.y
       );
 
+    } else {
+
+      setOpenHouse(true);
+
     }
+
   }
 
 
-  const widthPercent =
-    (HOUSE_WIDTH / GRID_SIZE) * 100;
-
-
-  const heightPercent =
-    (HOUSE_HEIGHT / GRID_SIZE) * 100;
-
-
-  const leftPercent =
-    (position.x / GRID_SIZE) * 100;
-
-
-  const topPercent =
-    (position.y / GRID_SIZE) * 100;
-
-
   return (
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        zIndex: 2,
-        pointerEvents: 'none',
-      }}
-    >
-
+    <>
       <div
-        onPointerDown={pointerDown}
-        onPointerMove={pointerMove}
-        onPointerUp={pointerUp}
-
         style={{
           position: 'absolute',
-
-          left: `${leftPercent}%`,
-          top: `${topPercent}%`,
-
-          width: `${widthPercent}%`,
-          height: `${heightPercent}%`,
-
-          cursor: dragging
-            ? 'grabbing'
-            : 'grab',
-
-          touchAction: 'none',
-
-          pointerEvents: 'auto',
+          inset: 0,
+          zIndex: 2,
+          pointerEvents: 'none',
         }}
       >
 
-        <img
-          src={ORION_HOUSE_IMAGE}
-          alt="Orion House"
-
-          draggable={false}
+        <div
+          onPointerDown={pointerDown}
+          onPointerMove={pointerMove}
+          onPointerUp={pointerUp}
 
           style={{
-            width: '100%',
-            height: '100%',
+            position: 'absolute',
 
-            objectFit: 'contain',
+            left: `${(position.x / GRID_SIZE) * 100}%`,
+            top: `${(position.y / GRID_SIZE) * 100}%`,
 
-            imageRendering: 'pixelated',
+            width: `${(HOUSE_WIDTH / GRID_SIZE) * 100}%`,
+            height: `${(HOUSE_HEIGHT / GRID_SIZE) * 100}%`,
 
-            pointerEvents: 'none',
+            cursor: dragging
+              ? 'grabbing'
+              : 'grab',
 
-            display: 'block',
+            touchAction: 'none',
+
+            pointerEvents: 'auto',
           }}
-        />
+        >
+
+          <img
+            src={ORION_HOUSE_IMAGE}
+            alt="Orion House"
+            draggable={false}
+
+            style={{
+              width: '100%',
+              height: '100%',
+
+              objectFit: 'contain',
+
+              imageRendering: 'pixelated',
+
+              pointerEvents: 'none',
+
+              display: 'block',
+            }}
+          />
+
+        </div>
 
       </div>
 
-    </div>
+
+      {openHouse && (
+        <div
+          onClick={() => setOpenHouse(false)}
+
+          style={{
+            position: 'fixed',
+            inset: 0,
+
+            background:
+              'rgba(0,0,0,0.5)',
+
+            zIndex: 100,
+
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+
+          <div
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+
+            style={{
+              background: '#222',
+              color: 'white',
+
+              padding: 20,
+
+              borderRadius: 12,
+            }}
+          >
+
+            <h2>
+              Orion House
+            </h2>
+
+            <p>
+              House menu coming soon...
+            </p>
+
+            <button
+              onClick={() =>
+                setOpenHouse(false)
+              }
+            >
+              Exit
+            </button>
+
+          </div>
+
+        </div>
+      )}
+
+    </>
   );
 }
