@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePlacementGrid } from './PlacementGrid';
+import { canPlaceItem } from './placementGridUtil';
 
 const IMAGE = '/assets/seed-nest.png';
 
@@ -25,6 +26,11 @@ export function SeedNest({
     y,
   });
 
+  const oldPosition = useRef({
+    x,
+    y,
+  });
+
   const [dragging, setDragging] = useState(false);
   const [openShop, setOpenShop] = useState(false);
 
@@ -35,8 +41,11 @@ export function SeedNest({
     y: 0,
   });
 
+  const occupied = placement?.occupied ?? [];
+
 
   useEffect(() => {
+
     placement?.registerItem(
       position.x,
       position.y,
@@ -45,7 +54,9 @@ export function SeedNest({
         height: HEIGHT,
       }
     );
+
   }, []);
+
 
 
   function pointerDown(e: React.PointerEvent) {
@@ -61,14 +72,22 @@ export function SeedNest({
 
     timer.current = window.setTimeout(() => {
 
+      oldPosition.current = {
+        ...position,
+      };
+
+
       setDragging(true);
+
 
       e.currentTarget.setPointerCapture(
         e.pointerId
       );
 
     }, 500);
+
   }
+
 
 
   function pointerMove(e: React.PointerEvent) {
@@ -78,6 +97,7 @@ export function SeedNest({
 
     const grid =
       e.currentTarget.parentElement?.parentElement;
+
 
     if (!grid) return;
 
@@ -93,27 +113,39 @@ export function SeedNest({
       rect.height / GRID_SIZE;
 
 
-    let newX = Math.floor(
-      (e.clientX - rect.left - offset.current.x)
-      / slotWidth
+    let newX = Math.round(
+      (
+        e.clientX -
+        rect.left -
+        offset.current.x
+      ) / slotWidth
     );
 
 
-    let newY = Math.floor(
-      (e.clientY - rect.top - offset.current.y)
-      / slotHeight
+    let newY = Math.round(
+      (
+        e.clientY -
+        rect.top -
+        offset.current.y
+      ) / slotHeight
     );
 
 
     newX = Math.max(
       0,
-      Math.min(GRID_SIZE - WIDTH, newX)
+      Math.min(
+        GRID_SIZE - WIDTH,
+        newX
+      )
     );
 
 
     newY = Math.max(
       0,
-      Math.min(GRID_SIZE - HEIGHT, newY)
+      Math.min(
+        GRID_SIZE - HEIGHT,
+        newY
+      )
     );
 
 
@@ -121,7 +153,9 @@ export function SeedNest({
       x: newX,
       y: newY,
     });
+
   }
+
 
 
   function pointerUp(e: React.PointerEvent) {
@@ -134,18 +168,52 @@ export function SeedNest({
 
     if (dragging) {
 
+
+      const allowed =
+        canPlaceItem(
+          position.x,
+          position.y,
+          {
+            width: WIDTH,
+            height: HEIGHT,
+          },
+          occupied.filter(
+            (slot) =>
+              !(
+                slot.x >= oldPosition.current.x &&
+                slot.x < oldPosition.current.x + WIDTH &&
+                slot.y >= oldPosition.current.y &&
+                slot.y < oldPosition.current.y + HEIGHT
+              )
+          )
+        );
+
+
+      if (!allowed) {
+
+        setPosition({
+          ...oldPosition.current,
+        });
+
+      }
+
+
       setDragging(false);
+
 
       e.currentTarget.releasePointerCapture(
         e.pointerId
       );
+
 
     } else {
 
       setOpenShop(true);
 
     }
+
   }
+
 
 
   return (
@@ -158,17 +226,22 @@ export function SeedNest({
         style={{
           position: 'absolute',
 
-          left: `${(position.x / GRID_SIZE) * 100}%`,
-          top: `${(position.y / GRID_SIZE) * 100}%`,
+          left:
+            `${(position.x / GRID_SIZE) * 100}%`,
 
-          width: `${(WIDTH / GRID_SIZE) * 100}%`,
-          height: `${(HEIGHT / GRID_SIZE) * 100}%`,
+          top:
+            `${(position.y / GRID_SIZE) * 100}%`,
+
+          width:
+            `${(WIDTH / GRID_SIZE) * 100}%`,
+
+          height:
+            `${(HEIGHT / GRID_SIZE) * 100}%`,
 
           zIndex: 3,
 
-          cursor: dragging
-            ? 'grabbing'
-            : 'grab',
+          cursor:
+            dragging ? 'grabbing' : 'grab',
 
           touchAction: 'none',
         }}
@@ -208,9 +281,7 @@ export function SeedNest({
             zIndex: 100,
 
             display: 'flex',
-
             justifyContent: 'center',
-
             alignItems: 'center',
           }}
         >
@@ -222,11 +293,8 @@ export function SeedNest({
 
             style={{
               background: '#222',
-
               padding: 20,
-
               borderRadius: 12,
-
               color: 'white',
             }}
           >

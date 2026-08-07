@@ -26,6 +26,11 @@ export function OrionHouse({
     y: subY,
   });
 
+  const oldPosition = useRef({
+    x: subX,
+    y: subY,
+  });
+
   const [dragging, setDragging] = useState(false);
   const [openHouse, setOpenHouse] = useState(false);
 
@@ -66,6 +71,10 @@ export function OrionHouse({
 
     timer.current = window.setTimeout(() => {
 
+      oldPosition.current = {
+        ...position,
+      };
+
       setDragging(true);
 
       e.currentTarget.setPointerCapture(
@@ -73,6 +82,7 @@ export function OrionHouse({
       );
 
     }, 500);
+
   }
 
 
@@ -135,28 +145,6 @@ export function OrionHouse({
     );
 
 
-    const canMove = canPlaceItem(
-      gridX,
-      gridY,
-      {
-        width: HOUSE_WIDTH,
-        height: HOUSE_HEIGHT,
-      },
-      occupied.filter(
-        (slot) =>
-          !(
-            slot.x >= position.x &&
-            slot.x < position.x + HOUSE_WIDTH &&
-            slot.y >= position.y &&
-            slot.y < position.y + HOUSE_HEIGHT
-          )
-      )
-    );
-
-
-    if (!canMove) return;
-
-
     setPosition({
       x: gridX,
       y: gridY,
@@ -175,17 +163,51 @@ export function OrionHouse({
 
     if (dragging) {
 
+      const canPlace =
+        canPlaceItem(
+          position.x,
+          position.y,
+          {
+            width: HOUSE_WIDTH,
+            height: HOUSE_HEIGHT,
+          },
+          occupied.filter(
+            (slot) =>
+              !(
+                slot.x >= oldPosition.current.x &&
+                slot.x <
+                  oldPosition.current.x + HOUSE_WIDTH &&
+                slot.y >= oldPosition.current.y &&
+                slot.y <
+                  oldPosition.current.y + HOUSE_HEIGHT
+              )
+          )
+        );
+
+
+      if (!canPlace) {
+
+        setPosition({
+          ...oldPosition.current,
+        });
+
+      } else {
+
+        onMove?.(
+          position.x,
+          position.y
+        );
+
+      }
+
+
       setDragging(false);
+
 
       e.currentTarget.releasePointerCapture(
         e.pointerId
       );
 
-
-      onMove?.(
-        position.x,
-        position.y
-      );
 
     } else {
 
@@ -218,8 +240,11 @@ export function OrionHouse({
             left: `${(position.x / GRID_SIZE) * 100}%`,
             top: `${(position.y / GRID_SIZE) * 100}%`,
 
-            width: `${(HOUSE_WIDTH / GRID_SIZE) * 100}%`,
-            height: `${(HOUSE_HEIGHT / GRID_SIZE) * 100}%`,
+            width:
+              `${(HOUSE_WIDTH / GRID_SIZE) * 100}%`,
+
+            height:
+              `${(HOUSE_HEIGHT / GRID_SIZE) * 100}%`,
 
             cursor: dragging
               ? 'grabbing'
