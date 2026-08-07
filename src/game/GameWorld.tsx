@@ -1,6 +1,9 @@
 import { useEffect, useCallback } from 'react';
 import { useGameStore } from './useGameStore';
 import { useResourceStore } from '../economy/resourceStore';
+import { useGemStore } from '../economy/gemStore';
+import { useVipStore } from '../economy/vipStore';
+import { usePaymentStore } from '../economy/paymentStore';
 import { OrionBackground } from './OrionBackground';
 import { PlayerIsland } from './PlayerIsland';
 import { LevelBadge } from './LevelBadge';
@@ -16,11 +19,17 @@ export function GameWorld() {
   } = useGameStore();
 
   const initializeResources = useResourceStore((s) => s.initialize);
+  const initializeGems = useGemStore((s) => s.initialize);
+  const initializeVip = useVipStore((s) => s.initialize);
+  const initializePayments = usePaymentStore((s) => s.initialize);
 
-  // Load resource balances once (local storage for now, Supabase later).
+  // Load balances once (local storage for now, Supabase later).
   useEffect(() => {
     void initializeResources();
-  }, [initializeResources]);
+    void initializeGems();
+    void initializeVip();
+    void initializePayments();
+  }, [initializeResources, initializeGems, initializeVip, initializePayments]);
 
   // Auto-save every 3 seconds
   useEffect(() => {

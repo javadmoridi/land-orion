@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { OrionHouse } from './OrionHouse';
-import { OrionCharacter } from './OrionCharacter';
 import { PlacementGrid } from './PlacementGrid';
 import { SeedNest } from './SeedNest';
 import { EggNest } from './EggNest';
@@ -14,10 +13,12 @@ interface PlayerIslandProps {
 }
 
 export function PlayerIsland(_props: PlayerIslandProps) {
+
   const [housePosition, setHousePosition] = useState({
     x: 0,
     y: 0,
   });
+
 
   return (
     <div
@@ -29,6 +30,7 @@ export function PlayerIsland(_props: PlayerIslandProps) {
         alignItems: 'center',
       }}
     >
+
       <div
         style={{
           position: 'relative',
@@ -38,59 +40,73 @@ export function PlayerIsland(_props: PlayerIslandProps) {
           overflow: 'hidden',
         }}
       >
+
         <img
           src={LAND_MAP_IMAGE}
           alt="Island"
           draggable={false}
+
           style={{
             position: 'absolute',
             inset: 0,
+
             width: '100%',
             height: '100%',
+
             objectFit: 'fill',
+
             imageRendering: 'pixelated',
+
             pointerEvents: 'none',
           }}
         />
+
 
         <div
           style={{
             position: 'absolute',
             inset: 0,
+
             width: '100%',
             height: '100%',
           }}
         >
+
           <PlacementGrid>
+
             <OrionHouse
               subX={housePosition.x}
               subY={housePosition.y}
+
               onMove={(x, y) => {
+
                 setHousePosition({
                   x,
                   y,
                 });
+
               }}
             />
+
 
             <SeedNest
               x={3}
               y={3}
             />
 
+
             <EggNest
               x={9}
               y={3}
             />
+
           </PlacementGrid>
 
-          <OrionCharacter
-            leftPercent={70}
-            topPercent={35}
-            sizePercent={30}
-          />
+
         </div>
+
       </div>
+
     </div>
   );
 }

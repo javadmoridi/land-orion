@@ -9,6 +9,8 @@ const GRID_SIZE = 14;
 const WIDTH = 2;
 const HEIGHT = 2;
 
+const EGG_NEST_ID = 'egg-nest';
+
 interface Props {
   x?: number;
   y?: number;
@@ -47,6 +49,7 @@ export function EggNest({
   useEffect(() => {
 
     placement?.registerItem(
+      EGG_NEST_ID,
       position.x,
       position.y,
       {
@@ -64,27 +67,30 @@ export function EggNest({
     const rect =
       e.currentTarget.getBoundingClientRect();
 
+
     offset.current = {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     };
 
 
-    timer.current = window.setTimeout(() => {
+    timer.current =
+      window.setTimeout(() => {
 
-      oldPosition.current = {
-        ...position,
-      };
-
-
-      setDragging(true);
+        oldPosition.current = {
+          ...position,
+        };
 
 
-      e.currentTarget.setPointerCapture(
-        e.pointerId
-      );
+        setDragging(true);
 
-    }, 500);
+
+        e.currentTarget.setPointerCapture(
+          e.pointerId
+        );
+
+
+      }, 500);
 
   }
 
@@ -96,7 +102,8 @@ export function EggNest({
 
 
     const grid =
-      e.currentTarget.parentElement?.parentElement;
+      e.currentTarget.parentElement
+        ?.parentElement;
 
 
     if (!grid) return;
@@ -109,26 +116,29 @@ export function EggNest({
     const slotWidth =
       rect.width / GRID_SIZE;
 
+
     const slotHeight =
       rect.height / GRID_SIZE;
 
 
-    let newX = Math.round(
-      (
-        e.clientX -
-        rect.left -
-        offset.current.x
-      ) / slotWidth
-    );
+    let newX =
+      Math.round(
+        (
+          e.clientX -
+          rect.left -
+          offset.current.x
+        ) / slotWidth
+      );
 
 
-    let newY = Math.round(
-      (
-        e.clientY -
-        rect.top -
-        offset.current.y
-      ) / slotHeight
-    );
+    let newY =
+      Math.round(
+        (
+          e.clientY -
+          rect.top -
+          offset.current.y
+        ) / slotHeight
+      );
 
 
     newX = Math.max(
@@ -160,10 +170,15 @@ export function EggNest({
 
   function pointerUp(e: React.PointerEvent) {
 
+
     if (timer.current) {
+
       clearTimeout(timer.current);
+
       timer.current = null;
+
     }
+
 
 
     if (dragging) {
@@ -171,34 +186,66 @@ export function EggNest({
 
       const allowed =
         canPlaceItem(
+
           position.x,
+
           position.y,
+
           {
             width: WIDTH,
             height: HEIGHT,
           },
+
           occupied.filter(
+
             (slot) =>
+
               !(
                 slot.x >= oldPosition.current.x &&
                 slot.x < oldPosition.current.x + WIDTH &&
                 slot.y >= oldPosition.current.y &&
                 slot.y < oldPosition.current.y + HEIGHT
               )
+
           )
+
         );
 
 
+
       if (!allowed) {
+
 
         setPosition({
           ...oldPosition.current,
         });
 
+
+      } else {
+
+
+        placement?.registerItem(
+
+          EGG_NEST_ID,
+
+          position.x,
+
+          position.y,
+
+          {
+            width: WIDTH,
+            height: HEIGHT,
+          }
+
+        );
+
+
       }
 
 
+
       setDragging(false);
+
 
 
       e.currentTarget.releasePointerCapture(
@@ -208,7 +255,9 @@ export function EggNest({
 
     } else {
 
+
       setOpenShop(true);
+
 
     }
 
@@ -216,14 +265,22 @@ export function EggNest({
 
 
 
+
   return (
+
     <>
+
       <div
+
         onPointerDown={pointerDown}
+
         onPointerMove={pointerMove}
+
         onPointerUp={pointerUp}
 
+
         style={{
+
           position: 'absolute',
 
           left:
@@ -241,19 +298,30 @@ export function EggNest({
           zIndex: 3,
 
           cursor:
-            dragging ? 'grabbing' : 'grab',
+            dragging
+              ? 'grabbing'
+              : 'grab',
 
           touchAction: 'none',
+
         }}
+
       >
 
+
         <img
+
           src={IMAGE}
+
           alt="Egg Shop"
+
           draggable={false}
 
+
           style={{
+
             width: '100%',
+
             height: '100%',
 
             objectFit: 'contain',
@@ -261,18 +329,28 @@ export function EggNest({
             imageRendering: 'pixelated',
 
             display: 'block',
+
           }}
+
         />
+
 
       </div>
 
 
+
       {openShop && (
+
+
         <div
+
           onClick={() => setOpenShop(false)}
 
+
           style={{
+
             position: 'fixed',
+
             inset: 0,
 
             background:
@@ -281,47 +359,72 @@ export function EggNest({
             zIndex: 100,
 
             display: 'flex',
+
             justifyContent: 'center',
+
             alignItems: 'center',
+
           }}
+
         >
 
+
           <div
+
             onClick={(e) =>
               e.stopPropagation()
             }
 
+
             style={{
+
               background: '#222',
+
               color: 'white',
 
               padding: 20,
 
               borderRadius: 12,
+
             }}
+
           >
+
 
             <h2>
               Egg Shop
             </h2>
 
+
             <p>
               Orion eggs coming soon...
             </p>
 
+
             <button
+
               onClick={() =>
                 setOpenShop(false)
               }
+
             >
+
               Exit
+
             </button>
+
 
           </div>
 
+
         </div>
+
+
       )}
 
+
     </>
+
   );
+
 }

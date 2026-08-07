@@ -1,5 +1,8 @@
 // XP required to go from `level` to `level + 1`
 // formula: xpRequired(level) = 20 * Math.pow(1.2, level - 1)
+import { useState } from 'react';
+import { VipPanel } from './VipPanel';
+
 export function xpRequiredForLevel(level: number): number {
   return Math.round(20 * Math.pow(1.2, level - 1));
 }
@@ -26,12 +29,14 @@ interface LevelBadgeProps {
  * formula: xpRequired(level) = 20 * Math.pow(1.2, level - 1)
  */
 export function LevelBadge({ level, experience }: LevelBadgeProps) {
+  const [vipOpen, setVipOpen] = useState(false);
   const xpToNext = xpRequiredForLevel(level);
   const progress = Math.min(experience / xpToNext, 1);
   const circumference = 2 * Math.PI * 45; // r=45
   const dashOffset = circumference * (1 - progress);
 
   return (
+    <>
     <div
       style={{
         position: 'fixed',
@@ -43,7 +48,10 @@ export function LevelBadge({ level, experience }: LevelBadgeProps) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        cursor: 'pointer',
       }}
+      onClick={() => setVipOpen(true)}
+      title="Open VIP"
     >
       {/* Progress ring */}
       <svg width="120" height="120" viewBox="0 0 120 120" style={{ position: 'absolute', inset: 0 }}>
@@ -115,5 +123,8 @@ export function LevelBadge({ level, experience }: LevelBadgeProps) {
         </span>
       </div>
     </div>
+
+    <VipPanel open={vipOpen} onClose={() => setVipOpen(false)} />
+    </>
   );
 }
