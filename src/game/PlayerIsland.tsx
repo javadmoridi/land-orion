@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { OrionHouse } from './OrionHouse';
 import { OrionCharacter } from './OrionCharacter';
 import { PlacementGrid } from './PlacementGrid';
+import { SeedNest } from './SeedNest';
+import { EggNest } from './EggNest';
 
 const LAND_MAP_IMAGE = '/assets/land-map.png';
 
@@ -69,6 +71,16 @@ export function PlayerIsland(_props: PlayerIslandProps) {
                   y,
                 });
               }}
+            />
+
+            <SeedNest
+              x={3}
+              y={3}
+            />
+
+            <EggNest
+              x={9}
+              y={3}
             />
           </PlacementGrid>
 
