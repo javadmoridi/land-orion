@@ -27,13 +27,28 @@ export function OrionHouse({
 
   const timer = useRef<number | null>(null);
 
-  function pointerDown() {
+  const dragOffset = useRef({
+    x: 0,
+    y: 0,
+  });
+
+  function pointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    const target = e.currentTarget;
+
+    const rect = target.getBoundingClientRect();
+
+    dragOffset.current = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
+
     timer.current = window.setTimeout(() => {
       setDragging(true);
+      target.setPointerCapture(e.pointerId);
     }, 500);
   }
 
-  function pointerMove(e: React.PointerEvent) {
+  function pointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!dragging) return;
 
     const gridLayer =
@@ -46,31 +61,68 @@ export function OrionHouse({
     const slotWidth = rect.width / GRID_SIZE;
     const slotHeight = rect.height / GRID_SIZE;
 
-    let x = Math.floor(
-      (e.clientX - rect.left) / slotWidth
-    );
+    const houseWidth = slotWidth * HOUSE_WIDTH;
+    const houseHeight = slotHeight * HOUSE_HEIGHT;
 
-    let y = Math.floor(
-      (e.clientY - rect.top) / slotHeight
-    );
+    let pixelX =
+      e.clientX -
+      rect.left -
+      dragOffset.current.x;
 
-    x = Math.max(
+    let pixelY =
+      e.clientY -
+      rect.top -
+      dragOffset.current.y;
+
+    pixelX = Math.max(
       0,
-      Math.min(GRID_SIZE - HOUSE_WIDTH, x)
+      Math.min(
+        rect.width - houseWidth,
+        pixelX
+      )
     );
 
-    y = Math.max(
+    pixelY = Math.max(
       0,
-      Math.min(GRID_SIZE - HOUSE_HEIGHT, y)
+      Math.min(
+        rect.height - houseHeight,
+        pixelY
+      )
+    );
+
+    let gridX = Math.round(
+      pixelX / slotWidth
+    );
+
+    let gridY = Math.round(
+      pixelY / slotHeight
+    );
+
+    gridX = Math.max(
+      0,
+      Math.min(
+        GRID_SIZE - HOUSE_WIDTH,
+        gridX
+      )
+    );
+
+    gridY = Math.max(
+      0,
+      Math.min(
+        GRID_SIZE - HOUSE_HEIGHT,
+        gridY
+      )
     );
 
     setPosition({
-      x,
-      y,
+      x: gridX,
+      y: gridY,
     });
   }
 
-  function pointerUp() {
+  function pointerUp(
+    e: React.PointerEvent<HTMLDivElement>
+  ) {
     if (timer.current) {
       clearTimeout(timer.current);
       timer.current = null;
@@ -78,7 +130,15 @@ export function OrionHouse({
 
     if (dragging) {
       setDragging(false);
-      onMove?.(position.x, position.y);
+
+      e.currentTarget.releasePointerCapture(
+        e.pointerId
+      );
+
+      onMove?.(
+        position.x,
+        position.y
+      );
     }
   }
 
@@ -100,6 +160,7 @@ export function OrionHouse({
         position: 'absolute',
         inset: 0,
         zIndex: 2,
+        pointerEvents: 'none',
       }}
     >
       <div
@@ -120,6 +181,7 @@ export function OrionHouse({
             : 'grab',
 
           touchAction: 'none',
+          pointerEvents: 'auto',
         }}
       >
         <img
