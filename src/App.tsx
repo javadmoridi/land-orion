@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { TonConnectUIProvider, useTonWallet } from '@tonconnect/ui-react';
 import { WalletConnectionScreen } from './wallet/WalletConnectionScreen';
 import { GameWorld } from './game/GameWorld';
 import { useGameStore } from './game/useGameStore';
-import { MANIFEST_URL } from './wallet/walletService';
+import { getManifestUrl } from './wallet/walletService';
 
 function GameRouter() {
   const { isConnected, disconnectWallet } = useGameStore();
@@ -29,8 +29,15 @@ function GameRouter() {
 }
 
 function App() {
+  // Lazily + memoically compute the TON Connect manifest URL.
+  // `getManifestUrl()` reads `window.location.origin` at first render (not at
+  // module load), and the result is memoized so it is identical across React's
+  // StrictMode double-invoke — giving a stable initial manifest for both SSR and
+  // the production client build.
+  const manifestUrl = useMemo(getManifestUrl, []);
+
   return (
-    <TonConnectUIProvider manifestUrl={MANIFEST_URL}>
+    <TonConnectUIProvider manifestUrl={manifestUrl}>
       <GameRouter />
     </TonConnectUIProvider>
   );
