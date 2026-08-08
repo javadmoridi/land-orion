@@ -6,6 +6,7 @@ import { GameWorld } from './game/GameWorld';
 import { useGameStore } from './game/useGameStore';
 import { getManifestUrl } from './wallet/walletService';
 
+
 function GameRouter() {
   const {
     isConnected,
@@ -17,21 +18,25 @@ function GameRouter() {
 
   const wallet = useTonWallet();
 
+
   useEffect(() => {
     if (!wallet && isConnected) {
       disconnectWallet();
     }
   }, [wallet, isConnected, disconnectWallet]);
 
+
   if (connectionStatus === 'connecting') {
     return <div>Connecting wallet...</div>;
   }
+
 
   if (error) {
     return (
       <div>
         <h3>Game Error</h3>
         <p>{error}</p>
+
         <button onClick={disconnectWallet}>
           Disconnect
         </button>
@@ -39,21 +44,39 @@ function GameRouter() {
     );
   }
 
+
   if (!isConnected || !playerProfile) {
     return <WalletConnectionScreen />;
   }
 
+
   return <GameWorld />;
 }
 
+
+
 function App() {
-  const manifestUrl = useMemo(getManifestUrl, []);
+
+  const manifestUrl = useMemo(() => {
+    try {
+      return getManifestUrl();
+    } catch {
+      return '/tonconnect-manifest.json';
+    }
+  }, []);
+
 
   return (
-    <TonConnectUIProvider manifestUrl={manifestUrl}>
+    <TonConnectUIProvider
+      manifestUrl={manifestUrl}
+      actionsConfiguration={{
+        twaReturnUrl: window.location.origin,
+      }}
+    >
       <GameRouter />
     </TonConnectUIProvider>
   );
 }
+
 
 export default App;
