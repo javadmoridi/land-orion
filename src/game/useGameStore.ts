@@ -146,12 +146,12 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     });
 
     try {
-      console.log('[Wallet] Finding player:', session.address);
+      console.log('[DEBUG] Finding player:', session.address);
 
       const existingPlayer =
         await findPlayerByWallet(session.address);
 
-      console.log('[Wallet] Player result:', existingPlayer);
+      console.log('[DEBUG] Player result:', existingPlayer);
 
       if (existingPlayer) {
         set({
@@ -160,21 +160,21 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           isConnected: true,
         });
 
-        console.log('[Wallet] Loading saved game');
+        console.log('[DEBUG] Loading saved game');
 
         await get().loadGame(existingPlayer.id);
 
-        console.log('[Wallet] Loaded');
+        console.log('[DEBUG] Load complete');
 
         return;
       }
 
-      console.log('[Wallet] Creating new player');
+      console.log('[DEBUG] Creating new player');
 
       const newProfile =
         await createNewPlayer(session.address);
 
-      console.log('[Wallet] Created:', newProfile);
+      console.log('[DEBUG] New player created:', newProfile);
 
       set({
         playerProfile: newProfile,
@@ -213,10 +213,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         lastSavedAt: now,
       });
 
-      console.log('[Wallet] Complete');
+      console.log('[DEBUG] Wallet connection complete');
 
     } catch (err) {
-      console.error('[Wallet] ERROR:', err);
+      console.error('[DEBUG] CONNECT ERROR:', err);
 
       set({
         playerProfile: null,
@@ -228,7 +228,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
             : String(err),
       });
     }
-  },  disconnectWallet: () => {
+  },
+
+  disconnectWallet: () => {
     set({
       wallet: null,
       connectionStatus: 'disconnected',
@@ -244,10 +246,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       },
       selectedTile: null,
     });
-  },
-
-
-  saveGame: async () => {
+  },  saveGame: async () => {
     const {
       wallet,
       playerProfile,
@@ -255,7 +254,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     } = get();
 
     if (!wallet || !playerProfile) return;
-
 
     const currentState =
       gameState ?? {
@@ -276,7 +274,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         status: 'in-game' as const,
       };
 
-
     const payload: BackendSavePayload = {
       player: {
         ...playerProfile,
@@ -293,12 +290,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       savedAt: new Date().toISOString(),
     };
 
-
     set({
       isSaving: true,
       saveStatus: 'saving',
     });
-
 
     try {
       await savePlayerData(payload);
@@ -310,11 +305,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       });
 
     } catch (err) {
-
-      console.error(
-        '[Save] ERROR:',
-        err
-      );
+      console.error('[Save] ERROR:', err);
 
       set({
         isSaving: false,
@@ -329,57 +320,28 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
 
   loadGame: async (playerId) => {
-
     try {
-
-      console.log(
-        '[Game] Loading player:',
-        playerId
-      );
-
+      console.log('[Game] Loading player:', playerId);
 
       const loaded =
         await loadPlayerData(playerId);
 
-
       if (!loaded) {
-
-        console.warn(
-          '[Game] No save found'
-        );
-
+        console.warn('[Game] No save found');
         return;
       }
 
-
       set({
-
-        playerProfile:
-          loaded.player,
-
-        gameState:
-          loaded.gameState,
-
-        lastSavedAt:
-          loaded.savedAt,
-
-        saveStatus:
-          'saved',
+        playerProfile: loaded.player,
+        gameState: loaded.gameState,
+        lastSavedAt: loaded.savedAt,
+        saveStatus: 'saved',
       });
 
-
-      console.log(
-        '[Game] Load complete'
-      );
-
+      console.log('[Game] Load complete');
 
     } catch (err) {
-
-      console.error(
-        '[Load] ERROR:',
-        err
-      );
-
+      console.error('[Load] ERROR:', err);
 
       set({
         error:
@@ -392,19 +354,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
 
   movePlayer: (dx, dy) => {
-
     const {
       playerPosition,
       worldTiles,
     } = get();
 
-
-    const newX =
-      playerPosition.x + dx;
-
-    const newY =
-      playerPosition.y + dy;
-
+    const newX = playerPosition.x + dx;
+    const newY = playerPosition.y + dy;
 
     if (
       newX < 1 ||
@@ -413,7 +369,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       newY > 8
     ) return;
 
-
     const targetTile =
       worldTiles.find(
         (t) =>
@@ -421,11 +376,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           t.y === newY
       );
 
-
-    if (
-      targetTile?.type === 'water'
-    ) return;
-
+    if (targetTile?.type === 'water') return;
 
     set({
       playerPosition: {
@@ -437,7 +388,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
 
   interactWithTile: (tile) => {
-
     const {
       playerPosition,
       worldTiles,
@@ -445,24 +395,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       gameState,
     } = get();
 
-
     const distance =
-      Math.abs(
-        tile.x - playerPosition.x
-      ) +
-      Math.abs(
-        tile.y - playerPosition.y
-      );
-
+      Math.abs(tile.x - playerPosition.x) +
+      Math.abs(tile.y - playerPosition.y);
 
     if (distance > 1) return;
 
-
-    if (
-      !tile.harvestable ||
-      tile.harvested
-    ) return;
-
+    if (!tile.harvestable || tile.harvested) return;
 
     const updatedTiles =
       worldTiles.map((t) =>
@@ -474,32 +413,26 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           : t
       );
 
-
     const resources = {
       ...(gameState?.resources ?? {}),
     };
-
 
     if (tile.type === 'tree') {
       resources.wood =
         (resources.wood ?? 0) + 5;
     }
 
-
     if (tile.type === 'rock') {
       resources.stone =
         (resources.stone ?? 0) + 3;
     }
-
 
     if (tile.type === 'farm') {
       resources.food =
         (resources.food ?? 0) + 10;
     }
 
-
     set({
-
       worldTiles: updatedTiles,
 
       gameState:
@@ -509,7 +442,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
               resources,
             }
           : {
-
               playerId:
                 playerProfile?.id ?? 'player',
 
@@ -522,42 +454,33 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
               },
 
               inventory: [],
-
               resources,
-
               currency: {},
-
               status: 'in-game',
             },
     });
-
 
     void get().saveGame();
   },
 
 
   selectTile: (tile) => {
-
     set({
       selectedTile: tile,
     });
-
   },
 
 
   addToInventory: (item) => {
-
     const {
       gameState,
       playerProfile,
     } = get();
 
-
     const inventory =
       gameState?.inventory ??
       playerProfile?.inventory ??
       [];
-
 
     const existing =
       inventory.find(
@@ -566,10 +489,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           i.type === item.type
       );
 
-
     const next =
       existing
-
         ? inventory.map((i) =>
             i === existing
               ? {
@@ -580,25 +501,19 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
                 }
               : i
           )
-
         : [
             ...inventory,
             item,
           ];
 
-
     set({
-
       gameState:
         gameState
-
           ? {
               ...gameState,
               inventory: next,
             }
-
           : {
-
               playerId:
                 playerProfile?.id ?? 'player',
 
@@ -611,19 +526,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
               },
 
               inventory: next,
-
               resources: {},
-
               currency: {},
-
               status: 'in-game',
             },
-
     });
 
-
     void get().saveGame();
-
   },
 
 }));
