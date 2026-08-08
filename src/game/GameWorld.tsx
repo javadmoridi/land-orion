@@ -16,6 +16,9 @@ export function GameWorld() {
     gameState,
     saveGame,
     movePlayer,
+    error,
+    connectionStatus,
+    disconnectWallet,
   } = useGameStore();
 
   const initializeResources = useResourceStore((s) => s.initialize);
@@ -23,15 +26,18 @@ export function GameWorld() {
   const initializeVip = useVipStore((s) => s.initialize);
   const initializePayments = usePaymentStore((s) => s.initialize);
 
-  // Load balances once (local storage for now, Supabase later).
   useEffect(() => {
     void initializeResources();
     void initializeGems();
     void initializeVip();
     void initializePayments();
-  }, [initializeResources, initializeGems, initializeVip, initializePayments]);
+  }, [
+    initializeResources,
+    initializeGems,
+    initializeVip,
+    initializePayments,
+  ]);
 
-  // Auto-save every 3 seconds
   useEffect(() => {
     if (!playerProfile) return;
 
@@ -42,7 +48,6 @@ export function GameWorld() {
     return () => window.clearInterval(interval);
   }, [saveGame, playerProfile]);
 
-  // Keyboard movement
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       let dx = 0;
@@ -83,16 +88,69 @@ export function GameWorld() {
   );
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener(
+      'keydown',
+      handleKeyDown,
+    );
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener(
+        'keydown',
+        handleKeyDown,
+      );
     };
   }, [handleKeyDown]);
 
+
   if (!playerProfile) {
-    return null;
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          color: 'white',
+          gap: '20px',
+          background: '#071426',
+          padding: '20px',
+          textAlign: 'center',
+        }}
+      >
+        <h2>
+          {error
+            ? 'Game Loading Error'
+            : 'Loading Player...'}
+        </h2>
+
+        <p>
+          Connection:
+          {' '}
+          {connectionStatus}
+        </p>
+
+        {error && (
+          <p>
+            {error}
+          </p>
+        )}
+
+        {error && (
+          <button
+            onClick={disconnectWallet}
+            style={{
+              padding: '10px 20px',
+              cursor: 'pointer',
+            }}
+          >
+            Disconnect Wallet
+          </button>
+        )}
+      </div>
+    );
   }
+
 
   return (
     <div
@@ -102,19 +160,21 @@ export function GameWorld() {
         overflow: 'hidden',
       }}
     >
+
       <OrionBackground />
 
-      {/* XP TEST MODE */}
+
       <LevelBadge
         level={1}
         experience={0}
       />
 
-      {/* Player resource HUD (coins + Orion Token) below the level circle */}
+
       <ResourceDisplay />
 
-      {/* Floating quest button on the left side */}
+
       <QuestButton />
+
 
       <div
         style={{
@@ -129,15 +189,20 @@ export function GameWorld() {
       >
         <PlayerIsland
           level={playerProfile.level}
-          resources={gameState?.resources ?? {}}
+          resources={
+            gameState?.resources ?? {}
+          }
           inventory={
-            gameState?.inventory.map((item) => ({
-              id: item.id,
-              quantity: item.quantity,
-            })) ?? []
+            gameState?.inventory.map(
+              (item) => ({
+                id: item.id,
+                quantity: item.quantity,
+              }),
+            ) ?? []
           }
         />
       </div>
+
     </div>
   );
 }
