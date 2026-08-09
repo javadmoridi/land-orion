@@ -27,7 +27,7 @@ export const GEM_PACKAGES: GemPackage[] = [
   { id: 'gems-2000', gems: 2000 },
 ];
 
-export const STARTING_GEMS = 1000000000;
+export const STARTING_GEMS = 0;
 
 interface GemSaveData {
   gems: number;
