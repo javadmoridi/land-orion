@@ -61,70 +61,33 @@ export const STARTING_RESOURCES: PlayerResources = {
 // ---------------------------------------------------------------------------
 export const QUESTS: Quest[] = [
   {
-    id: 'build-first-house',
-    title: 'Build your first house',
-    description: 'Place your very first house on your island.',
+    id: 'collect-wood-20',
+    title: 'Collect 20 Wood',
+    description: 'Gather 20 wood from trees.',
     condition: {
-      label: 'Place a house on your island',
-      test: (ctx) => ctx.housesBuilt >= 1,
+      label: 'Have 20 wood',
+      test: (ctx) => ctx.wood >= 20,
     },
-    reward: { coins: 100, tokens: 5 },
+    reward: {
+      coins: 500,
+      tokens: 0,
+      gems: 0,
+    },
   },
+
   {
-    id: 'harvest-first-tree',
-    title: 'Harvest your first tree',
-    description: 'Chop down a tree to gather its wood.',
+    id: 'collect-stone-10',
+    title: 'Collect 10 Stone',
+    description: 'Gather 10 stone from rocks.',
     condition: {
-      label: 'Gather at least 5 wood',
-      test: (ctx) => ctx.wood >= 5,
+      label: 'Have 10 stone',
+      test: (ctx) => ctx.stone >= 10,
     },
-    reward: { coins: 50, tokens: 5 },
-  },
-  {
-    id: 'harvest-first-stone',
-    title: 'Harvest your first stone',
-    description: 'Mine a rock to gather some stone.',
-    condition: {
-      label: 'Gather at least 3 stone',
-      test: (ctx) => ctx.stone >= 3,
+    reward: {
+      coins: 1000,
+      tokens: 0,
+      gems: 0,
     },
-    reward: { coins: 75, tokens: 3 },
-  },{
-  id: 'test-gem-reward-2',
-  title: 'Daily Gem Test',
-  description: 'New test reward',
-  condition: {
-    label: 'Complete daily test',
-    test: () => true,
-  },
-  reward: {
-    coins: 1000000,
-    tokens: 1000000,
-    gems: 1000000,
-  },
-},
-  {
-  id: 'test-million-reward',
-  title: 'Test Daily Reward',
-  description: 'One day test reward',
-  condition: {
-    label: 'Complete test',
-    test: () => true,
-  },
-  reward: {
-    coins: 1000000000,
-    tokens: 1000000000,
-  },
-},
-  {
-    id: 'gather-some-food',
-    title: 'Gather some food',
-    description: 'Tend your farm to gather fresh food.',
-    condition: {
-      label: 'Gather at least 10 food',
-      test: (ctx) => ctx.food >= 10,
-    },
-    reward: { coins: 60, tokens: 2 },
   },
 ];
 
