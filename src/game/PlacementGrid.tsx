@@ -15,10 +15,12 @@ import {
   getOccupiedSlots,
 } from './placementGridUtil';
 
+
 interface PlacementGridProps {
   showGrid?: boolean;
   children?: ReactNode;
 }
+
 
 interface PlacedItem {
   id: string;
@@ -27,34 +29,47 @@ interface PlacedItem {
   size: ItemSize;
 }
 
+
 interface PlacementContextType {
   occupied: GridSlot[];
   items: PlacedItem[];
-  registerItem: (
+
+  registerItem(
     id: string,
     x: number,
     y: number,
     size: ItemSize,
-  ) => void;
-  removeItem: (id: string) => void;
+  ): void;
+
+  removeItem(id: string): void;
 }
+
 
 const PlacementContext =
   createContext<PlacementContextType | null>(null);
 
+
 export function usePlacementGrid() {
   return useContext(PlacementContext);
 }
+
 
 export function PlacementGrid({
   showGrid = false,
   children,
 }: PlacementGridProps) {
 
-  const slots = useMemo(() => createPlacementGrid(), []);
+
+  const slots = useMemo(
+    () => createPlacementGrid(),
+    []
+  );
+
 
   const [items, setItems] =
     useState<PlacedItem[]>([]);
+
+
 
   const occupied = useMemo(
     () =>
@@ -69,6 +84,7 @@ export function PlacementGrid({
   );
 
 
+
   const registerItem = useCallback(
     (
       id: string,
@@ -77,25 +93,61 @@ export function PlacementGrid({
       size: ItemSize,
     ) => {
 
+
       setItems((old) => {
 
-        const existing = old.find(
-          (item) => item.id === id
-        );
 
-        if (
-          existing &&
-          existing.x === x &&
-          existing.y === y &&
-          existing.size === size
-        ) {
+        const otherItems =
+          old.filter(
+            (item) =>
+              item.id !== id
+          );
+
+
+        const newSlots =
+          getOccupiedSlots(
+            x,
+            y,
+            size,
+          );
+
+
+        const collision =
+          otherItems.some(
+            (item) => {
+
+              const itemSlots =
+                getOccupiedSlots(
+                  item.x,
+                  item.y,
+                  item.size,
+                );
+
+
+              return newSlots.some(
+                (slot) =>
+                  itemSlots.some(
+                    (other) =>
+                      other.x === slot.x &&
+                      other.y === slot.y
+                  )
+              );
+
+            }
+          );
+
+
+
+        // جلوگیری از قرار گرفتن روی ساختمان دیگر
+
+        if (collision) {
           return old;
         }
 
+
+
         return [
-          ...old.filter(
-            (item) => item.id !== id
-          ),
+          ...otherItems,
           {
             id,
             x,
@@ -103,23 +155,30 @@ export function PlacementGrid({
             size,
           },
         ];
+
       });
+
 
     },
     []
   );
+
 
 
   const removeItem = useCallback(
     (id: string) => {
+
       setItems((old) =>
         old.filter(
-          (item) => item.id !== id
+          (item) =>
+            item.id !== id
         )
       );
+
     },
     []
   );
+
 
 
   const contextValue = useMemo(
@@ -138,30 +197,33 @@ export function PlacementGrid({
   );
 
 
+
   return (
+
     <PlacementContext.Provider
       value={contextValue}
     >
 
       <div
         style={{
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
+          position:'absolute',
+          inset:0,
+          width:'100%',
+          height:'100%',
         }}
       >
 
+
         <div
           style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'grid',
+            position:'absolute',
+            inset:0,
+            display:'grid',
             gridTemplateColumns:
               `repeat(${GRID_SIZE},1fr)`,
             gridTemplateRows:
               `repeat(${GRID_SIZE},1fr)`,
-            pointerEvents: 'none',
+            pointerEvents:'none',
           }}
         >
 
@@ -173,15 +235,17 @@ export function PlacementGrid({
               data-y={slot.y}
               style={{
                 boxSizing:'border-box',
-                border: showGrid
-                  ? '1px dashed rgba(255,255,255,0.25)'
-                  : 'none',
+                border:
+                  showGrid
+                    ? '1px dashed rgba(255,255,255,0.25)'
+                    : 'none',
               }}
             />
 
           ))}
 
         </div>
+
 
 
         <div
@@ -192,11 +256,16 @@ export function PlacementGrid({
             height:'100%',
           }}
         >
+
           {children}
+
         </div>
+
 
       </div>
 
     </PlacementContext.Provider>
+
   );
+
 }

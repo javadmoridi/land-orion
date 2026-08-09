@@ -1,16 +1,16 @@
 import { useState } from 'react';
 
-const KITCHEN_IMAGE = '/assets/orion-kitchen.png';
+const BARRACKS_IMAGE = '/assets/orion-barracks.png';
 
 const GRID_SIZE = 14;
 
-const X = 5;
+const X = 0;
 const Y = 4;
 
 const WIDTH = 4;
 const HEIGHT = 4;
 
-export function Kitchen() {
+export function Barracks() {
 
   const [open, setOpen] = useState(false);
 
@@ -32,8 +32,8 @@ export function Kitchen() {
         }}
       >
         <img
-          src={KITCHEN_IMAGE}
-          alt="Orion Kitchen"
+          src={BARRACKS_IMAGE}
+          alt="Barracks"
           draggable={false}
           style={{
             width: '100%',
@@ -71,14 +71,16 @@ export function Kitchen() {
           >
 
             <h2>
-              🍳 Orion Kitchen
+              Barracks
             </h2>
 
             <p>
-              Cooking system coming soon...
+              Barracks menu coming soon...
             </p>
 
-            <button onClick={() => setOpen(false)}>
+            <button
+              onClick={() => setOpen(false)}
+            >
               Exit
             </button>
 

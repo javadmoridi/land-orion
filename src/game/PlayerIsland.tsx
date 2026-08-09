@@ -1,46 +1,61 @@
-import { useState } from 'react';
 import { OrionHouse } from './OrionHouse';
 import { PlacementGrid } from './PlacementGrid';
 import { SeedNest } from './SeedNest';
-import { EggNest } from './EggNest';
-import { EggShop } from './buildings/EggShop';
+import { EggShop } from './EggShop';
+import { Barracks } from './buildings/Barracks';
 import { Incubator } from './buildings/Incubator';
-import { Kitchen } from './buildings/Kitchen';
+import { OrionSupply } from './buildings/OrionSupply';
+import { Tree } from './buildings/Tree';
 
 const LAND_MAP_IMAGE = '/assets/land-map.png';
+
+
+const TREES = [
+  { x: 0, y: 8 },
+  { x: 2, y: 8 },
+  { x: 4, y: 8 },
+
+  { x: 0, y: 10 },
+  { x: 2, y: 10 },
+  { x: 4, y: 10 },
+
+  { x: 0, y: 12 },
+  { x: 2, y: 12 },
+  { x: 4, y: 12 },
+];
+
 
 interface PlayerIslandProps {
   level: number;
   resources?: Record<string, number>;
-  inventory?: Array<{ id: string; quantity: number }>;
+  inventory?: Array<{
+    id:string;
+    quantity:number;
+  }>;
 }
+
 
 export function PlayerIsland(_props: PlayerIslandProps) {
 
-  const [housePosition, setHousePosition] = useState({
-    x: 0,
-    y: 0,
-  });
-
-
   return (
+
     <div
       style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
+        width:'100%',
+        height:'100%',
+        display:'flex',
+        justifyContent:'center',
+        alignItems:'center',
       }}
     >
 
       <div
         style={{
-          position: 'relative',
-          width: 'min(90vw, 90vh)',
-          maxWidth: '1400px',
-          aspectRatio: '1 / 1',
-          overflow: 'hidden',
+          position:'relative',
+          width:'min(90vw,90vh)',
+          maxWidth:'1400px',
+          aspectRatio:'1 / 1',
+          overflow:'hidden',
         }}
       >
 
@@ -48,83 +63,73 @@ export function PlayerIsland(_props: PlayerIslandProps) {
           src={LAND_MAP_IMAGE}
           alt="Island"
           draggable={false}
-
           style={{
-            position: 'absolute',
-            inset: 0,
-
-            width: '100%',
-            height: '100%',
-
-            objectFit: 'fill',
-
-            imageRendering: 'pixelated',
-
-            pointerEvents: 'none',
+            position:'absolute',
+            inset:0,
+            width:'100%',
+            height:'100%',
+            objectFit:'fill',
+            imageRendering:'pixelated',
+            pointerEvents:'none',
           }}
         />
 
 
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
+        <PlacementGrid>
 
-            width: '100%',
-            height: '100%',
-          }}
-        >
+          <OrionHouse
+            subX={0}
+            subY={0}
+          />
 
-          <PlacementGrid>
 
-            <OrionHouse
-              subX={housePosition.x}
-              subY={housePosition.y}
+          <Barracks
+            x={0}
+            y={4}
+          />
 
-              onMove={(x, y) => {
 
-                setHousePosition({
-                  x,
-                  y,
-                });
+          <SeedNest
+            x={5}
+            y={0}
+          />
 
-              }}
+
+          <EggShop
+            x={9}
+            y={0}
+          />
+
+
+          <Incubator
+            x={9}
+            y={3}
+          />
+
+
+          <OrionSupply
+            x={4}
+            y={4}
+          />
+
+
+          {TREES.map((tree,index)=>(
+
+            <Tree
+              key={index}
+              x={tree.x}
+              y={tree.y}
             />
 
-
-            <SeedNest
-              x={3}
-              y={3}
-            />
+          ))}
 
 
-            <EggNest
-              x={9}
-              y={3}
-            />
+        </PlacementGrid>
 
-            <EggShop
-              x={3}
-              y={9}
-            />
-
-            <Incubator
-              x={10}
-              y={5}
-            />
-
-            <Kitchen
-              x={9}
-              y={9}
-            />
-
-          </PlacementGrid>
-
-
-        </div>
 
       </div>
 
     </div>
+
   );
 }
