@@ -91,6 +91,19 @@ export const QUESTS: Quest[] = [
     reward: { coins: 75, tokens: 3 },
   },
   {
+  id: 'test-million-reward',
+  title: 'Test Daily Reward',
+  description: 'One day test reward',
+  condition: {
+    label: 'Complete test',
+    test: () => true,
+  },
+  reward: {
+    coins: 1000000000,
+    tokens: 1000000000,
+  },
+},
+  {
     id: 'gather-some-food',
     title: 'Gather some food',
     description: 'Tend your farm to gather fresh food.',
