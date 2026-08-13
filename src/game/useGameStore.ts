@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+
 import type {
   BackendSavePayload,
   GameState,
@@ -25,55 +26,44 @@ export interface WorldTile {
   id: string;
   x: number;
   y: number;
-  type: 'grass' | 'tree' | 'rock' | 'farm' | 'water';
+  type:
+    | 'grass'
+    | 'tree'
+    | 'rock'
+    | 'farm'
+    | 'water';
   harvestable?: boolean;
   harvested?: boolean;
 }
 
-interface GameStoreState {
-  wallet: WalletSession | null;
-  connectionStatus: ConnectionStatus;
-  isConnected: boolean;
-
+interface LocalGameSave {
   playerProfile: PlayerProfile | null;
   gameState: GameState | null;
-
-  isSaving: boolean;
-  saveStatus: 'idle' | 'saving' | 'saved' | 'error';
-  lastSavedAt: string | null;
-  error: string | null;
-
   playerPosition: PlayerPosition;
   worldTiles: WorldTile[];
-  selectedTile: WorldTile | null;
-
-  connectWallet: (session: WalletSession) => Promise<void>;
-  disconnectWallet: () => void;
-  saveGame: () => Promise<void>;
-  loadGame: (playerId: string) => Promise<void>;
-
-  movePlayer: (dx: number, dy: number) => void;
-  interactWithTile: (tile: WorldTile) => void;
-  selectTile: (tile: WorldTile | null) => void;
-  addToInventory: (item: InventoryItem) => void;
-  /** Remove a quantity of an inventory item (used by the incubator). */
-  removeFromInventory: (id: string, quantity?: number) => boolean;
-  /** Add to a numeric resource (wood/stone/iron/gold/crystal), fractional OK. */
-  addResource: (key: string, amount: number) => void;
-  /** Spend from a numeric resource; returns false if insufficient. */
-  spendResource: (key: string, amount: number) => boolean;
-  /** True when the player owns at least one of an inventory item. */
-  hasItem: (id: string) => boolean;
+  savedAt: string;
 }
 
-const GRID_SIZE = 10;
+const LOCAL_GAME_STORAGE_KEY =
+  'land-orion-game-save';
 
 function createWorldTiles(): WorldTile[] {
   const tiles: WorldTile[] = [];
 
-  for (let y = 0; y < GRID_SIZE; y++) {
-    for (let x = 0; x < GRID_SIZE; x++) {
-      let type: WorldTile['type'] = 'grass';
+  const GRID_SIZE = 10;
+
+  for (
+    let y = 0;
+    y < GRID_SIZE;
+    y++
+  ) {
+    for (
+      let x = 0;
+      x < GRID_SIZE;
+      x++
+    ) {
+      let type: WorldTile['type'] =
+        'grass';
 
       if (
         (x === 2 && y === 2) ||
@@ -123,539 +113,1137 @@ function createWorldTiles(): WorldTile[] {
   return tiles;
 }
 
-export const useGameStore = create<GameStoreState>((set, get) => ({
-  wallet: null,
-  connectionStatus: 'disconnected',
-  isConnected: false,
+function createFreshGameState(
+  playerId: string
+): GameState {
+  return {
+    playerId,
+    progress: {
+      completedMissions: [],
+      currentMissionId:
+        'intro-mission',
+      lastAction: 'in-game',
+    },
+    inventory: [],
+    resources: {},
+    currency: {},
+    status: 'in-game',
+  };
+}
 
-  playerProfile: null,
-  gameState: null,
+function loadLocalGameSave(): LocalGameSave | null {
+  if (
+    typeof window === 'undefined'
+  ) {
+    return null;
+  }
 
-  isSaving: false,
-  saveStatus: 'idle',
-  lastSavedAt: null,
-  error: null,
+  const raw =
+    window.localStorage.getItem(
+      LOCAL_GAME_STORAGE_KEY
+    );
 
-  playerPosition: {
-    x: 5,
-    y: 5,
-  },
+  if (!raw) {
+    return null;
+  }
 
-  worldTiles: createWorldTiles(),
+  try {
+    const parsed =
+      JSON.parse(raw) as Partial<LocalGameSave>;
 
-  selectedTile: null,
+    return {
+      playerProfile:
+        parsed.playerProfile ?? null,
 
-  connectWallet: async (session) => {
-    set({
-      wallet: session,
-      connectionStatus: 'connecting',
+      gameState:
+        parsed.gameState ?? null,
+
+      playerPosition:
+        parsed.playerPosition ?? {
+          x: 5,
+          y: 5,
+        },
+
+      worldTiles:
+        Array.isArray(
+          parsed.worldTiles
+        )
+          ? parsed.worldTiles
+          : createWorldTiles(),
+
+      savedAt:
+        typeof parsed.savedAt === 'string'
+          ? parsed.savedAt
+          : new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalGameSave(
+  save: LocalGameSave
+): void {
+  if (
+    typeof window === 'undefined'
+  ) {
+    return;
+  }
+
+  window.localStorage.setItem(
+    LOCAL_GAME_STORAGE_KEY,
+    JSON.stringify(save)
+  );
+}
+
+const initialLocalSave =
+  loadLocalGameSave();
+
+interface GameStoreState {
+  wallet: WalletSession | null;
+  connectionStatus: ConnectionStatus;
+  isConnected: boolean;
+
+  playerProfile:
+    | PlayerProfile
+    | null;
+
+  gameState:
+    | GameState
+    | null;
+
+  isSaving: boolean;
+
+  saveStatus:
+    | 'idle'
+    | 'saving'
+    | 'saved'
+    | 'error';
+
+  lastSavedAt:
+    | string
+    | null;
+
+  error:
+    | string
+    | null;
+
+  playerPosition:
+    PlayerPosition;
+
+  worldTiles: WorldTile[];
+
+  selectedTile:
+    | WorldTile
+    | null;
+
+  connectWallet: (
+    session: WalletSession
+  ) => Promise<void>;
+
+  disconnectWallet: () => void;
+
+  saveGame: () => Promise<void>;
+
+  loadGame: (
+    playerId: string
+  ) => Promise<void>;
+
+  movePlayer: (
+    dx: number,
+    dy: number
+  ) => void;
+
+  interactWithTile: (
+    tile: WorldTile
+  ) => void;
+
+  selectTile: (
+    tile: WorldTile | null
+  ) => void;
+
+  addToInventory: (
+    item: InventoryItem
+  ) => void;
+
+  removeFromInventory: (
+    id: string,
+    quantity?: number
+  ) => boolean;
+
+  addResource: (
+    key: string,
+    amount: number
+  ) => void;
+
+  spendResource: (
+    key: string,
+    amount: number
+  ) => boolean;
+
+  hasItem: (
+    id: string
+  ) => boolean;
+}
+
+export const useGameStore =
+  create<GameStoreState>(
+    (set, get) => ({
+      wallet: null,
+
+      connectionStatus:
+        'disconnected',
+
+      isConnected: false,
+
+      playerProfile:
+        initialLocalSave
+          ?.playerProfile ?? null,
+
+      gameState:
+        initialLocalSave
+          ?.gameState ?? null,
+
+      isSaving: false,
+
+      saveStatus:
+        initialLocalSave
+          ? 'saved'
+          : 'idle',
+
+      lastSavedAt:
+        initialLocalSave
+          ?.savedAt ?? null,
+
       error: null,
-    });
 
-    try {
-      console.log('[DEBUG] Finding player:', session.address);
+      playerPosition:
+        initialLocalSave
+          ?.playerPosition ?? {
+            x: 5,
+            y: 5,
+          },
 
-      const existingPlayer =
-        await findPlayerByWallet(session.address);
+      worldTiles:
+        initialLocalSave
+          ?.worldTiles ??
+        createWorldTiles(),
 
-      console.log('[DEBUG] Player result:', existingPlayer);
+      selectedTile: null,
 
-      if (existingPlayer) {
+      // ================================================================
+      // CONNECT WALLET
+      // ================================================================
+
+      connectWallet:
+        async (session) => {
+          set({
+            wallet: session,
+
+            connectionStatus:
+              'connecting',
+
+            error: null,
+          });
+
+          try {
+            console.log(
+              '[DEBUG] Finding player:',
+              session.address
+            );
+
+            const existingPlayer =
+              await findPlayerByWallet(
+                session.address
+              );
+
+            if (existingPlayer) {
+              set({
+                playerProfile:
+                  existingPlayer,
+
+                connectionStatus:
+                  'connected',
+
+                isConnected:
+                  true,
+              });
+
+              await get().loadGame(
+                existingPlayer.id
+              );
+
+              return;
+            }
+
+            const newProfile =
+              await createNewPlayer(
+                session.address
+              );
+
+            const now =
+              new Date().toISOString();
+
+            const newGameState =
+              createFreshGameState(
+                newProfile.id
+              );
+
+            set({
+              playerProfile:
+                newProfile,
+
+              gameState:
+                newGameState,
+
+              connectionStatus:
+                'connected',
+
+              isConnected:
+                true,
+
+              saveStatus:
+                'saved',
+
+              lastSavedAt:
+                now,
+            });
+
+            writeLocalGameSave({
+              playerProfile:
+                newProfile,
+
+              gameState:
+                newGameState,
+
+              playerPosition:
+                get().playerPosition,
+
+              worldTiles:
+                get().worldTiles,
+
+              savedAt: now,
+            });
+
+            await savePlayerData({
+              player: {
+                ...newProfile,
+                lastSeenAt: now,
+              },
+
+              gameState:
+                newGameState,
+
+              land: newProfile.land,
+
+              savedAt: now,
+            });
+
+            console.log(
+              '[DEBUG] Wallet connection complete'
+            );
+          } catch (err) {
+            console.error(
+              '[DEBUG] CONNECT ERROR:',
+              err
+            );
+
+            set({
+              connectionStatus:
+                'disconnected',
+
+              isConnected: false,
+
+              error:
+                err instanceof Error
+                  ? err.message
+                  : String(err),
+            });
+          }
+        },
+
+      // ================================================================
+      // DISCONNECT
+      // ================================================================
+
+      disconnectWallet: () => {
         set({
-          playerProfile: existingPlayer,
-          connectionStatus: 'connected',
-          isConnected: true,
+          wallet: null,
+
+          connectionStatus:
+            'disconnected',
+
+          isConnected: false,
+
+          saveStatus:
+            get().gameState
+              ? 'saved'
+              : 'idle',
+
+          selectedTile: null,
+        });
+      },
+
+      // ================================================================
+      // SAVE GAME
+      // ================================================================
+
+      saveGame: async () => {
+        const {
+          wallet,
+          playerProfile,
+          gameState,
+          playerPosition,
+          worldTiles,
+        } = get();
+
+        const now =
+          new Date().toISOString();
+
+        /*
+         * Always save locally.
+         * This is the important fix:
+         * saving no longer depends on Wallet connection.
+         */
+
+        let localPlayer =
+          playerProfile;
+
+        let localGameState =
+          gameState;
+
+        /*
+         * If there is no profile yet but there is game data,
+         * create a lightweight local profile.
+         */
+
+        if (!localPlayer) {
+          localPlayer = {
+            id: 'local-player',
+            walletAddress:
+              'local',
+            username:
+              'Local Player',
+            level: 1,
+            experience: 0,
+            status: 'in-game',
+            inventory:
+              localGameState?.inventory ??
+              [],
+            land: [],
+            createdAt: now,
+            lastSeenAt: now,
+          };
+        }
+
+        if (!localGameState) {
+          localGameState =
+            createFreshGameState(
+              localPlayer.id
+            );
+        }
+
+        const localSave: LocalGameSave =
+          {
+            playerProfile:
+              localPlayer,
+
+            gameState:
+              localGameState,
+
+            playerPosition,
+
+            worldTiles,
+
+            savedAt: now,
+          };
+
+        writeLocalGameSave(
+          localSave
+        );
+
+        /*
+         * If there is no Wallet,
+         * LocalStorage is enough.
+         */
+
+        if (
+          !wallet ||
+          !playerProfile
+        ) {
+          set({
+            playerProfile:
+              localPlayer,
+
+            gameState:
+              localGameState,
+
+            saveStatus:
+              'saved',
+
+            lastSavedAt: now,
+
+            isSaving: false,
+          });
+
+          return;
+        }
+
+        // ================================================================
+        // SUPABASE SAVE
+        // ================================================================
+
+        const payload:
+          BackendSavePayload = {
+            player: {
+              ...playerProfile,
+
+              lastSeenAt: now,
+            },
+
+            gameState: {
+              ...localGameState,
+
+              status:
+                'in-game',
+            },
+
+            land:
+              playerProfile.land,
+
+            savedAt: now,
+          };
+
+        set({
+          isSaving: true,
+
+          saveStatus:
+            'saving',
         });
 
-        console.log('[DEBUG] Loading saved game');
+        try {
+          await savePlayerData(
+            payload
+          );
 
-        await get().loadGame(existingPlayer.id);
+          set({
+            isSaving: false,
 
-        console.log('[DEBUG] Load complete');
+            saveStatus:
+              'saved',
 
-        return;
-      }
+            lastSavedAt:
+              payload.savedAt,
 
-      console.log('[DEBUG] Creating new player');
+            error: null,
+          });
+        } catch (err) {
+          console.error(
+            '[Save] SUPABASE ERROR:',
+            err
+          );
 
-      const newProfile =
-        await createNewPlayer(session.address);
+          /*
+           * Local save has already succeeded,
+           * so the game is still safe.
+           */
 
-      console.log('[DEBUG] New player created:', newProfile);
+          set({
+            isSaving: false,
 
-      set({
-        playerProfile: newProfile,
-        connectionStatus: 'connected',
-        isConnected: true,
-      });
+            saveStatus:
+              'error',
 
-      const now = new Date().toISOString();
+            lastSavedAt: now,
 
-      await savePlayerData({
-        player: {
-          ...newProfile,
-          lastSeenAt: now,
+            error:
+              err instanceof Error
+                ? err.message
+                : String(err),
+          });
+        }
+      },
+
+      // ================================================================
+      // LOAD GAME
+      // ================================================================
+
+      loadGame:
+        async (playerId) => {
+          try {
+            console.log(
+              '[Game] Loading player:',
+              playerId
+            );
+
+            const loaded =
+              await loadPlayerData(
+                playerId
+              );
+
+            if (!loaded) {
+              console.warn(
+                '[Game] No remote save found. Keeping local save.'
+              );
+
+              return;
+            }
+
+            set({
+              playerProfile:
+                loaded.player,
+
+              gameState:
+                loaded.gameState,
+
+              lastSavedAt:
+                loaded.savedAt,
+
+              saveStatus:
+                'saved',
+            });
+
+            /*
+             * Keep LocalStorage synchronized
+             * after a successful remote load.
+             */
+
+            writeLocalGameSave({
+              playerProfile:
+                loaded.player,
+
+              gameState:
+                loaded.gameState,
+
+              playerPosition:
+                get().playerPosition,
+
+              worldTiles:
+                get().worldTiles,
+
+              savedAt:
+                loaded.savedAt,
+            });
+
+            console.log(
+              '[Game] Load complete'
+            );
+          } catch (err) {
+            console.error(
+              '[Load] ERROR:',
+              err
+            );
+
+            /*
+             * Local save remains available.
+             */
+
+            set({
+              error:
+                err instanceof Error
+                  ? err.message
+                  : String(err),
+            });
+          }
         },
 
-        gameState: {
-          playerId: newProfile.id,
-          progress: {
-            completedMissions: [],
-            currentMissionId: 'intro-mission',
-            lastAction: 'joined-land-orion',
+      // ================================================================
+      // PLAYER MOVEMENT
+      // ================================================================
+
+      movePlayer: (
+        dx,
+        dy
+      ) => {
+        const {
+          playerPosition,
+          worldTiles,
+        } = get();
+
+        const newX =
+          playerPosition.x +
+          dx;
+
+        const newY =
+          playerPosition.y +
+          dy;
+
+        if (
+          newX < 1 ||
+          newX > 8 ||
+          newY < 1 ||
+          newY > 8
+        ) {
+          return;
+        }
+
+        const targetTile =
+          worldTiles.find(
+            (t) =>
+              t.x === newX &&
+              t.y === newY
+          );
+
+        if (
+          targetTile?.type ===
+          'water'
+        ) {
+          return;
+        }
+
+        set({
+          playerPosition: {
+            x: newX,
+            y: newY,
           },
-          inventory: [],
-          resources: {},
-          currency: {},
-          status: 'in-game',
-        },
-
-        land: [],
-
-        savedAt: now,
-      });
-
-      set({
-        saveStatus: 'saved',
-        lastSavedAt: now,
-      });
-
-      console.log('[DEBUG] Wallet connection complete');
-
-    } catch (err) {
-      console.error('[DEBUG] CONNECT ERROR:', err);
-
-      set({
-        playerProfile: null,
-        connectionStatus: 'disconnected',
-        isConnected: false,
-        error:
-          err instanceof Error
-            ? err.message
-            : String(err),
-      });
-    }
-  },
-
-  disconnectWallet: () => {
-    set({
-      wallet: null,
-      connectionStatus: 'disconnected',
-      isConnected: false,
-      playerProfile: null,
-      gameState: null,
-      saveStatus: 'idle',
-      lastSavedAt: null,
-      error: null,
-      playerPosition: {
-        x: 5,
-        y: 5,
-      },
-      selectedTile: null,
-    });
-  },  saveGame: async () => {
-    const {
-      wallet,
-      playerProfile,
-      gameState,
-    } = get();
-
-    if (!wallet || !playerProfile) return;
-
-    const currentState =
-      gameState ?? {
-        playerId: playerProfile.id,
-
-        progress: {
-          completedMissions: [],
-          currentMissionId: 'intro-mission',
-          lastAction: 'in-game',
-        },
-
-        inventory: playerProfile.inventory,
-
-        resources: {},
-
-        currency: {},
-
-        status: 'in-game' as const,
-      };
-
-    const payload: BackendSavePayload = {
-      player: {
-        ...playerProfile,
-        lastSeenAt: new Date().toISOString(),
+        });
       },
 
-      gameState: {
-        ...currentState,
-        status: 'in-game',
-      },
+      // ================================================================
+      // TILE INTERACTION
+      // ================================================================
 
-      land: playerProfile.land,
+      interactWithTile:
+        (tile) => {
+          const {
+            playerPosition,
+            worldTiles,
+            playerProfile,
+            gameState,
+          } = get();
 
-      savedAt: new Date().toISOString(),
-    };
+          const distance =
+            Math.abs(
+              tile.x -
+                playerPosition.x
+            ) +
+            Math.abs(
+              tile.y -
+                playerPosition.y
+            );
 
-    set({
-      isSaving: true,
-      saveStatus: 'saving',
-    });
+          if (distance > 1) {
+            return;
+          }
 
-    try {
-      await savePlayerData(payload);
+          if (
+            !tile.harvestable ||
+            tile.harvested
+          ) {
+            return;
+          }
 
-      set({
-        isSaving: false,
-        saveStatus: 'saved',
-        lastSavedAt: payload.savedAt,
-      });
+          const updatedTiles =
+            worldTiles.map(
+              (t) =>
+                t.id === tile.id
+                  ? {
+                      ...t,
+                      harvested:
+                        true,
+                    }
+                  : t
+            );
 
-    } catch (err) {
-      console.error('[Save] ERROR:', err);
+          const resources = {
+            ...(gameState?.resources ??
+              {}),
+          };
 
-      set({
-        isSaving: false,
-        saveStatus: 'error',
-        error:
-          err instanceof Error
-            ? err.message
-            : String(err),
-      });
-    }
-  },
+          if (
+            tile.type === 'tree'
+          ) {
+            resources.wood =
+              (resources.wood ??
+                0) + 5;
+          }
 
+          if (
+            tile.type === 'rock'
+          ) {
+            resources.stone =
+              (resources.stone ??
+                0) + 3;
+          }
 
-  loadGame: async (playerId) => {
-    try {
-      console.log('[Game] Loading player:', playerId);
+          if (
+            tile.type === 'farm'
+          ) {
+            resources.food =
+              (resources.food ??
+                0) + 10;
+          }
 
-      const loaded =
-        await loadPlayerData(playerId);
-
-      if (!loaded) {
-        console.warn('[Game] No save found');
-        return;
-      }
-
-      set({
-        playerProfile: loaded.player,
-        gameState: loaded.gameState,
-        lastSavedAt: loaded.savedAt,
-        saveStatus: 'saved',
-      });
-
-      console.log('[Game] Load complete');
-
-    } catch (err) {
-      console.error('[Load] ERROR:', err);
-
-      set({
-        error:
-          err instanceof Error
-            ? err.message
-            : String(err),
-      });
-    }
-  },
-
-
-  movePlayer: (dx, dy) => {
-    const {
-      playerPosition,
-      worldTiles,
-    } = get();
-
-    const newX = playerPosition.x + dx;
-    const newY = playerPosition.y + dy;
-
-    if (
-      newX < 1 ||
-      newX > 8 ||
-      newY < 1 ||
-      newY > 8
-    ) return;
-
-    const targetTile =
-      worldTiles.find(
-        (t) =>
-          t.x === newX &&
-          t.y === newY
-      );
-
-    if (targetTile?.type === 'water') return;
-
-    set({
-      playerPosition: {
-        x: newX,
-        y: newY,
-      },
-    });
-  },
-
-
-  interactWithTile: (tile) => {
-    const {
-      playerPosition,
-      worldTiles,
-      playerProfile,
-      gameState,
-    } = get();
-
-    const distance =
-      Math.abs(tile.x - playerPosition.x) +
-      Math.abs(tile.y - playerPosition.y);
-
-    if (distance > 1) return;
-
-    if (!tile.harvestable || tile.harvested) return;
-
-    const updatedTiles =
-      worldTiles.map((t) =>
-        t.id === tile.id
-          ? {
-              ...t,
-              harvested: true,
-            }
-          : t
-      );
-
-    const resources = {
-      ...(gameState?.resources ?? {}),
-    };
-
-    if (tile.type === 'tree') {
-      resources.wood =
-        (resources.wood ?? 0) + 5;
-    }
-
-    if (tile.type === 'rock') {
-      resources.stone =
-        (resources.stone ?? 0) + 3;
-    }
-
-    if (tile.type === 'farm') {
-      resources.food =
-        (resources.food ?? 0) + 10;
-    }
-
-    set({
-      worldTiles: updatedTiles,
-
-      gameState:
-        gameState
-          ? {
-              ...gameState,
-              resources,
-            }
-          : {
-              playerId:
-                playerProfile?.id ?? 'player',
-
-              progress: {
-                completedMissions: [],
-                currentMissionId:
-                  'intro-mission',
-                lastAction:
-                  'harvested',
-              },
-
-              inventory: [],
-              resources,
-              currency: {},
-              status: 'in-game',
-            },
-    });
-
-    void get().saveGame();
-  },
-
-
-  selectTile: (tile) => {
-    set({
-      selectedTile: tile,
-    });
-  },
-
-
-  addToInventory: (item) => {
-    const {
-      gameState,
-      playerProfile,
-    } = get();
-
-    const inventory =
-      gameState?.inventory ??
-      playerProfile?.inventory ??
-      [];
-
-    const existing =
-      inventory.find(
-        (i) =>
-          i.id === item.id &&
-          i.type === item.type
-      );
-
-    const next =
-      existing
-        ? inventory.map((i) =>
-            i === existing
+          const nextGameState =
+            gameState
               ? {
-                  ...i,
-                  quantity:
-                    i.quantity +
-                    item.quantity,
+                  ...gameState,
+                  resources,
                 }
-              : i
-          )
-        : [
-            ...inventory,
-            item,
-          ];
+              : {
+                  playerId:
+                    playerProfile?.id ??
+                    'local-player',
 
-    set({
-      gameState:
-        gameState
-          ? {
-              ...gameState,
-              inventory: next,
-            }
-          : {
-              playerId:
-                playerProfile?.id ?? 'player',
+                  progress: {
+                    completedMissions:
+                      [],
+                    currentMissionId:
+                      'intro-mission',
+                    lastAction:
+                      'harvested',
+                  },
 
-              progress: {
-                completedMissions: [],
-                currentMissionId:
-                  'intro-mission',
-                lastAction:
-                  'bought-egg',
-              },
+                  inventory: [],
+                  resources,
+                  currency: {},
+                  status:
+                    'in-game' as const,
+                };
 
-              inventory: next,
-              resources: {},
-              currency: {},
-              status: 'in-game',
-            },
-    });
+          set({
+            worldTiles:
+              updatedTiles,
 
-    void get().saveGame();
-  },
+            gameState:
+              nextGameState,
+          });
 
-  removeFromInventory: (id, quantity = 1) => {
-    const {
-      gameState,
-      playerProfile,
-    } = get();
+          void get().saveGame();
+        },
 
-    const inventory =
-      gameState?.inventory ??
-      playerProfile?.inventory ??
-      [];
+      // ================================================================
+      // SELECT TILE
+      // ================================================================
 
-    const existing =
-      inventory.find((i) => i.id === id);
+      selectTile: (
+        tile
+      ) => {
+        set({
+          selectedTile:
+            tile,
+        });
+      },
 
-    if (!existing || existing.quantity < quantity) {
-      return false;
-    }
+      // ================================================================
+      // ADD INVENTORY
+      // ================================================================
 
-    const next =
-      inventory
-        .map((i) =>
-          i.id === id
-            ? { ...i, quantity: i.quantity - quantity }
-            : i
-        )
-        .filter((i) => i.quantity > 0);
+      addToInventory:
+        (item) => {
+          const {
+            gameState,
+            playerProfile,
+          } = get();
 
-    set({
-      gameState:
-        gameState
-          ? {
-              ...gameState,
-              inventory: next,
-            }
-          : {
-              playerId: playerProfile?.id ?? 'player',
-              progress: {
-                completedMissions: [],
-                currentMissionId: 'intro-mission',
-                lastAction: 'removed-inventory',
-              },
-              inventory: next,
-              resources: {},
-              currency: {},
-              status: 'in-game',
-            },
-    });
+          const inventory =
+            gameState?.inventory ??
+            playerProfile?.inventory ??
+            [];
 
-    void get().saveGame();
-    return true;
-  },
+          const existing =
+            inventory.find(
+              (i) =>
+                i.id === item.id &&
+                i.type === item.type
+            );
 
-  addResource: (key, amount) => {
-    const { gameState, playerProfile } = get();
-    const resources = { ...(gameState?.resources ?? {}) };
-    resources[key] = (resources[key] ?? 0) + amount;
+          const next =
+            existing
+              ? inventory.map(
+                  (i) =>
+                    i === existing
+                      ? {
+                          ...i,
+                          quantity:
+                            i.quantity +
+                            item.quantity,
+                        }
+                      : i
+                )
+              : [
+                  ...inventory,
+                  item,
+                ];
 
-    set({
-      gameState:
-        gameState
-          ? { ...gameState, resources }
-          : {
-              playerId: playerProfile?.id ?? 'player',
-              progress: {
-                completedMissions: [],
-                currentMissionId: 'intro-mission',
-                lastAction: 'add-resource',
-              },
-              inventory: [],
-              resources,
-              currency: {},
-              status: 'in-game',
-            },
-    });
+          const nextGameState =
+            gameState
+              ? {
+                  ...gameState,
+                  inventory:
+                    next,
+                }
+              : {
+                  playerId:
+                    playerProfile?.id ??
+                    'local-player',
 
-    void get().saveGame();
-  },
+                  progress: {
+                    completedMissions:
+                      [],
+                    currentMissionId:
+                      'intro-mission',
+                    lastAction:
+                      'bought-egg',
+                  },
 
-  spendResource: (key, amount) => {
-    const { gameState, playerProfile } = get();
-    const resources = { ...(gameState?.resources ?? {}) };
-    const current = resources[key] ?? 0;
+                  inventory:
+                    next,
 
-    if (current < amount) return false;
+                  resources: {},
+                  currency: {},
+                  status:
+                    'in-game' as const,
+                };
 
-    resources[key] = current - amount;
+          set({
+            gameState:
+              nextGameState,
+          });
 
-    set({
-      gameState:
-        gameState
-          ? { ...gameState, resources }
-          : {
-              playerId: playerProfile?.id ?? 'player',
-              progress: {
-                completedMissions: [],
-                currentMissionId: 'intro-mission',
-                lastAction: 'spend-resource',
-              },
-              inventory: [],
-              resources,
-              currency: {},
-              status: 'in-game',
-            },
-    });
+          void get().saveGame();
+        },
 
-    void get().saveGame();
-    return true;
-  },
+      // ================================================================
+      // REMOVE INVENTORY
+      // ================================================================
 
-  hasItem: (id) =>
-    (
-      get().gameState?.inventory ??
-      get().playerProfile?.inventory ??
-      []
-    ).some((i) => i.id === id && i.quantity > 0),
+      removeFromInventory:
+        (
+          id,
+          quantity = 1
+        ) => {
+          const {
+            gameState,
+            playerProfile,
+          } = get();
 
-}));
+          const inventory =
+            gameState?.inventory ??
+            playerProfile?.inventory ??
+            [];
+
+          const existing =
+            inventory.find(
+              (i) =>
+                i.id === id
+            );
+
+          if (
+            !existing ||
+            existing.quantity <
+              quantity
+          ) {
+            return false;
+          }
+
+          const next =
+            inventory
+              .map(
+                (i) =>
+                  i.id === id
+                    ? {
+                        ...i,
+                        quantity:
+                          i.quantity -
+                          quantity,
+                      }
+                    : i
+              )
+              .filter(
+                (i) =>
+                  i.quantity > 0
+              );
+
+          const nextGameState =
+            gameState
+              ? {
+                  ...gameState,
+                  inventory:
+                    next,
+                }
+              : {
+                  playerId:
+                    playerProfile?.id ??
+                    'local-player',
+
+                  progress: {
+                    completedMissions:
+                      [],
+                    currentMissionId:
+                      'intro-mission',
+                    lastAction:
+                      'removed-inventory',
+                  },
+
+                  inventory:
+                    next,
+
+                  resources: {},
+                  currency: {},
+                  status:
+                    'in-game' as const,
+                };
+
+          set({
+            gameState:
+              nextGameState,
+          });
+
+          void get().saveGame();
+
+          return true;
+        },
+
+      // ================================================================
+      // ADD RESOURCE
+      // ================================================================
+
+      addResource: (
+        key,
+        amount
+      ) => {
+        if (amount < 0) {
+          return;
+        }
+
+        const {
+          gameState,
+          playerProfile,
+        } = get();
+
+        const resources = {
+          ...(gameState?.resources ??
+            {}),
+        };
+
+        resources[key] =
+          (resources[key] ?? 0) +
+          amount;
+
+        const nextGameState =
+          gameState
+            ? {
+                ...gameState,
+                resources,
+              }
+            : {
+                playerId:
+                  playerProfile?.id ??
+                  'local-player',
+
+                progress: {
+                  completedMissions:
+                    [],
+                  currentMissionId:
+                    'intro-mission',
+                  lastAction:
+                    'add-resource',
+                },
+
+                inventory: [],
+                resources,
+                currency: {},
+                status:
+                  'in-game' as const,
+              };
+
+        set({
+          gameState:
+            nextGameState,
+        });
+
+        void get().saveGame();
+      },
+
+      // ================================================================
+      // SPEND RESOURCE
+      // ================================================================
+
+      spendResource: (
+        key,
+        amount
+      ) => {
+        if (amount < 0) {
+          return false;
+        }
+
+        const {
+          gameState,
+          playerProfile,
+        } = get();
+
+        const resources = {
+          ...(gameState?.resources ??
+            {}),
+        };
+
+        const current =
+          resources[key] ?? 0;
+
+        if (
+          current < amount
+        ) {
+          return false;
+        }
+
+        resources[key] =
+          current - amount;
+
+        const nextGameState =
+          gameState
+            ? {
+                ...gameState,
+                resources,
+              }
+            : {
+                playerId:
+                  playerProfile?.id ??
+                  'local-player',
+
+                progress: {
+                  completedMissions:
+                    [],
+                  currentMissionId:
+                    'intro-mission',
+                  lastAction:
+                    'spend-resource',
+                },
+
+                inventory: [],
+                resources,
+                currency: {},
+                status:
+                  'in-game' as const,
+              };
+
+        set({
+          gameState:
+            nextGameState,
+        });
+
+        void get().saveGame();
+
+        return true;
+      },
+
+      // ================================================================
+      // INVENTORY CHECK
+      // ================================================================
+
+      hasItem: (
+        id
+      ) =>
+        (
+          get().gameState
+            ?.inventory ??
+          get().playerProfile
+            ?.inventory ??
+          []
+        ).some(
+          (i) =>
+            i.id === id &&
+            i.quantity > 0
+        ),
+    })
+  );

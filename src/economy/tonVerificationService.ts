@@ -1,19 +1,29 @@
-import { Address, Cell, loadMessageRelaxed } from '@ton/core';
-import type { TonConnectUI } from '@tonconnect/ui-react';
-
 import {
-  calcTonAmountForGems,
-  tonToNano,
-  getTonUsdPrice,
-  type TonPrice,
-} from './tonPriceService';
+  Address,
+  Cell,
+} from '@ton/core';
+
+import type { TonConnectUI } from '@tonconnect/ui-react';
 
 export const TON_RECEIVER_ADDRESS =
   'UQD5sQcpg5Ir_gfZ8qjE0m3N97JQK0vel6n_kvOZYZMBdqRa';
 
-const TONAPI_BASE = 'https://tonapi.io';
+export const MIN_GEM_PURCHASE = 100;
 
-export const REQUIRE_ONCHAIN_CONFIRMATION = true;
+// 1 Gem = 0.01 TON
+export const TON_PER_GEM = 0.01;
+
+const TONAPI_BASE =
+  'https://tonapi.io';
+
+export const REQUIRE_ONCHAIN_CONFIRMATION =
+  true;
+
+const CONFIRM_TIMEOUT_MS =
+  60_000;
+
+const FIRST_POLL_DELAY_MS =
+  1_000;
 
 export interface ParsedTransfer {
   destination: string;
@@ -26,6 +36,7 @@ export interface VerificationResult {
   reason?: string;
   parsed?: ParsedTransfer;
   onChainConfirmed?: boolean;
+  txHash?: string;
 }
 
 export interface GemPaymentResult {
@@ -34,74 +45,258 @@ export interface GemPaymentResult {
   gems: number;
   tonAmount: number;
   usdAmount: number;
-  tonPrice: TonPrice;
+  tonPrice: {
+    usd: number;
+  };
   txHash?: string;
 }
 
 interface SendResult {
   boc?: string;
-  txHash?: string;
 }
 
-export function parseTransferBoc(
+interface TonApiMessage {
+  destination?: string;
+  value?: string | number;
+}
+
+interface TonApiTransaction {
+  hash?: string;
+  success?: boolean;
+  out_msgs?: TonApiMessage[];
+}
+
+function messageHashFromBoc(
   boc: string
-): ParsedTransfer {
+): string {
+  const cell =
+    Cell.fromBase64(boc);
 
-  const cell = Cell.fromBase64(boc);
-  const msg = loadMessageRelaxed(cell.beginParse());
-
-  if (msg.info.type !== 'internal') {
-    throw new Error('Expected internal transfer.');
-  }
-
-  const dest = msg.info.dest;
-
-  if (!dest) {
-    throw new Error('Missing destination.');
-  }
-
-  return {
-    destination:
-      `${dest.workChain}:${dest.hash.toString('hex')}`,
-    amountNanoTon: msg.info.value.coins,
-    messageHash: cell.hash().toString('hex'),
-  };
+  return cell
+    .hash()
+    .toString('hex');
 }
 
+function normalizeAddress(
+  value: string
+): string {
+  return Address.parse(
+    value
+  ).toString({
+    urlSafe: true,
+    bounceable: true,
+  });
+}
+
+function sameAddress(
+  a: string,
+  b: string
+): boolean {
+  try {
+    return (
+      normalizeAddress(a) ===
+      normalizeAddress(b)
+    );
+  } catch {
+    return a === b;
+  }
+}
 
 async function fetchJson(
   url: string
 ): Promise<any | null> {
-
   try {
-    const res = await fetch(url);
+    const response =
+      await fetch(url);
 
-    if (!res.ok) return null;
+    if (!response.ok) {
+      return null;
+    }
 
-    return await res.json();
-
+    return await response.json();
   } catch {
     return null;
   }
 }
 
-
-async function confirmOnChain(
-  hash: string
-): Promise<boolean> {
-
-  if (!REQUIRE_ONCHAIN_CONFIRMATION) {
-    return true;
-  }
-
-  const tx =
-    await fetchJson(
-      `${TONAPI_BASE}/v2/blockchain/transactions/${hash}`
-    );
-
-  return tx?.success === true;
+function sleep(
+  ms: number
+): Promise<void> {
+  return new Promise(
+    (resolve) => {
+      window.setTimeout(
+        resolve,
+        ms
+      );
+    }
+  );
 }
 
+/*
+ * Find the exact outgoing payment inside
+ * the finalized blockchain transaction.
+ */
+function findMatchingOutgoingMessage(
+  transaction: TonApiTransaction,
+  expectedReceiver: string,
+  expectedNanoTon: bigint
+): TonApiMessage | null {
+  const messages =
+    Array.isArray(
+      transaction.out_msgs
+    )
+      ? transaction.out_msgs
+      : [];
+
+  const expectedReceiverNormalized =
+    normalizeAddress(
+      expectedReceiver
+    );
+
+  for (
+    const message of messages
+  ) {
+    if (
+      !message.destination ||
+      message.value ===
+        undefined
+    ) {
+      continue;
+    }
+
+    if (
+      !sameAddress(
+        message.destination,
+        expectedReceiverNormalized
+      )
+    ) {
+      continue;
+    }
+
+    let actualNano: bigint;
+
+    try {
+      actualNano =
+        BigInt(
+          String(
+            message.value
+          )
+        );
+    } catch {
+      continue;
+    }
+
+    if (
+      actualNano ===
+      expectedNanoTon
+    ) {
+      return message;
+    }
+  }
+
+  return null;
+}
+
+/*
+ * Wait for TONAPI to index the transaction.
+ */
+async function waitForVerifiedTransaction(
+  messageHash: string,
+  expectedReceiver: string,
+  expectedNanoTon: bigint
+): Promise<{
+  confirmed: boolean;
+  txHash?: string;
+  reason?: string;
+}> {
+  const startedAt =
+    Date.now();
+
+  let delay =
+    FIRST_POLL_DELAY_MS;
+
+  while (
+    Date.now() -
+      startedAt <
+    CONFIRM_TIMEOUT_MS
+  ) {
+    const transaction =
+      (await fetchJson(
+        `${TONAPI_BASE}/v2/blockchain/messages/${messageHash}/transaction`
+      )) as
+        | TonApiTransaction
+        | null;
+
+    if (transaction) {
+      const txHash =
+        transaction.hash;
+
+      if (
+        transaction.success ===
+        false
+      ) {
+        return {
+          confirmed: false,
+          txHash,
+          reason:
+            'Transaction failed on-chain.',
+        };
+      }
+
+      const paymentMessage =
+        findMatchingOutgoingMessage(
+          transaction,
+          expectedReceiver,
+          expectedNanoTon
+        );
+
+      if (paymentMessage) {
+        return {
+          confirmed: true,
+          txHash,
+        };
+      }
+
+      return {
+        confirmed: false,
+        txHash,
+        reason:
+          'Transaction found, but receiver or TON amount did not match.',
+      };
+    }
+
+    await sleep(delay);
+
+    delay = Math.min(
+      delay * 2,
+      8_000
+    );
+  }
+
+  return {
+    confirmed: false,
+    reason:
+      'Transaction was not indexed within 60 seconds.',
+  };
+}
+
+export function parseTransferBoc(
+  boc: string
+): ParsedTransfer {
+  const messageHash =
+    messageHashFromBoc(
+      boc
+    );
+
+  return {
+    destination:
+      TON_RECEIVER_ADDRESS,
+
+    amountNanoTon: 0n,
+
+    messageHash,
+  };
+}
 
 export async function verifyGemPayment(
   input: {
@@ -110,162 +305,177 @@ export async function verifyGemPayment(
     expectedNanoTon: bigint;
   }
 ): Promise<VerificationResult> {
-
   try {
+    Address.parse(
+      input.expectedReceiver
+    );
 
-    const parsed =
-      parseTransferBoc(input.boc);
-
-
-    const address =
-      Address.parse(input.expectedReceiver);
-
-
-    const expected =
-      `${address.workChain}:${address.hash.toString('hex')}`;
-
-
-    if (parsed.destination !== expected) {
-
-      return {
-        confirmed:false,
-        reason:'Wrong receiver.',
-        parsed,
-      };
-
-    }
-
-
-    if (
-      parsed.amountNanoTon !==
-      input.expectedNanoTon
-    ) {
-
-      return {
-        confirmed:false,
-        reason:'Wrong TON amount.',
-        parsed,
-      };
-
-    }
-
-
-    const confirmed =
-      await confirmOnChain(
-        parsed.messageHash
+    const messageHash =
+      messageHashFromBoc(
+        input.boc
       );
 
+    const verified =
+      await waitForVerifiedTransaction(
+        messageHash,
+        input.expectedReceiver,
+        input.expectedNanoTon
+      );
+
+    if (!verified.confirmed) {
+      return {
+        confirmed: false,
+
+        reason:
+          verified.reason ??
+          'Transaction was not verified.',
+
+        onChainConfirmed: false,
+
+        txHash:
+          verified.txHash,
+
+        parsed: {
+          destination:
+            input.expectedReceiver,
+
+          amountNanoTon:
+            input.expectedNanoTon,
+
+          messageHash,
+        },
+      };
+    }
 
     return {
-      confirmed,
-      parsed,
-      onChainConfirmed: confirmed,
-      reason: confirmed
-        ? undefined
-        : 'Transaction not confirmed.',
+      confirmed: true,
+
+      onChainConfirmed: true,
+
+      txHash:
+        verified.txHash,
+
+      parsed: {
+        destination:
+          input.expectedReceiver,
+
+        amountNanoTon:
+          input.expectedNanoTon,
+
+        messageHash,
+      },
     };
-
-
-  } catch(err) {
-
+  } catch (error) {
     return {
-      confirmed:false,
+      confirmed: false,
+
       reason:
-        err instanceof Error
-        ? err.message
-        : 'Verification failed.',
-    };
+        error instanceof Error
+          ? error.message
+          : 'Verification failed.',
 
+      onChainConfirmed: false,
+    };
   }
 }
-
-
 
 export async function sendGemPaymentAndVerify(
   tonConnectUI: TonConnectUI,
   gems: number
 ): Promise<GemPaymentResult> {
-
-
-  const tonPrice =
-    await getTonUsdPrice();
-
-
   const tonAmount =
-    calcTonAmountForGems(
-      gems
-    );
-
+    gems * TON_PER_GEM;
 
   const nano =
-    tonToNano(
-      tonAmount
+    BigInt(
+      Math.round(
+        tonAmount *
+          1_000_000_000
+      )
     );
-
 
   const usdAmount = 0;
 
+  const tonPrice = {
+    usd: 0,
+  };
+
+  if (
+    !Number.isInteger(gems) ||
+    gems < MIN_GEM_PURCHASE
+  ) {
+    return {
+      confirmed: false,
+
+      reason:
+        'Minimum purchase is 100 Gems.',
+
+      gems,
+
+      tonAmount,
+
+      usdAmount,
+
+      tonPrice,
+    };
+  }
 
   try {
-
-
     const result =
-      await tonConnectUI.sendTransaction({
+      (await tonConnectUI.sendTransaction(
+        {
+          validUntil:
+            Math.floor(
+              Date.now() / 1000
+            ) + 600,
 
-        validUntil:
-          Math.floor(Date.now()/1000)+600,
+          messages: [
+            {
+              address:
+                TON_RECEIVER_ADDRESS,
 
-        messages:[
-          {
-            address:
-              TON_RECEIVER_ADDRESS,
+              amount:
+                nano.toString(),
+            },
+          ],
+        }
+      )) as SendResult;
 
-            amount:
-              nano.toString(),
-          }
-        ]
-
-      }) as SendResult;
-
-
-
-    if(!result.boc){
-
+    if (!result.boc) {
       return {
-        confirmed:false,
-        reason:'No transaction returned.',
+        confirmed: false,
+
+        reason:
+          'No transaction BOC returned by wallet.',
+
         gems,
+
         tonAmount,
+
         usdAmount,
+
         tonPrice,
       };
-
     }
 
-
-
-    const verify =
+    const verification =
       await verifyGemPayment({
-
-        boc:result.boc,
+        boc:
+          result.boc,
 
         expectedReceiver:
           TON_RECEIVER_ADDRESS,
 
         expectedNanoTon:
           nano,
-
       });
 
-
-
     return {
-
       confirmed:
-        verify.confirmed,
+        verification.confirmed,
 
       reason:
-        verify.reason,
+        verification.reason,
 
       gems,
 
@@ -276,23 +486,16 @@ export async function sendGemPaymentAndVerify(
       tonPrice,
 
       txHash:
-        verify.parsed?.messageHash ??
-        result.txHash,
-
+        verification.txHash,
     };
-
-
-  } catch(err) {
-
-
+  } catch (error) {
     return {
-
-      confirmed:false,
+      confirmed: false,
 
       reason:
-        err instanceof Error
-        ? err.message
-        : 'Payment failed.',
+        error instanceof Error
+          ? error.message
+          : 'Payment failed.',
 
       gems,
 
@@ -301,8 +504,6 @@ export async function sendGemPaymentAndVerify(
       usdAmount,
 
       tonPrice,
-
     };
-
   }
 }
