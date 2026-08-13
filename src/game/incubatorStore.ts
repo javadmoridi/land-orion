@@ -101,11 +101,18 @@ export function incubatorUpgradeCost(
   return level * 500;
 }
 
+const INCUBATOR_STORAGE_KEY =
+  'land-orion-incubator';
+
+interface IncubatorSaveData {
+  level: number;
+  slots: IncubatorSlot[];
+}
+
 function createSlots(): IncubatorSlot[] {
   return Array.from(
     {
-      length:
-        INCUBATOR_MAX_LEVEL,
+      length: INCUBATOR_MAX_LEVEL,
     },
     (_, index) => ({
       id: index + 1,
@@ -113,6 +120,123 @@ function createSlots(): IncubatorSlot[] {
       placedAt: null,
       unlocked: index === 0,
     })
+  );
+}
+
+function loadIncubatorData(): IncubatorSaveData {
+  if (
+    typeof window === 'undefined'
+  ) {
+    return {
+      level: 1,
+      slots: createSlots(),
+    };
+  }
+
+  const raw =
+    window.localStorage.getItem(
+      INCUBATOR_STORAGE_KEY
+    );
+
+  if (!raw) {
+    return {
+      level: 1,
+      slots: createSlots(),
+    };
+  }
+
+  try {
+    const parsed =
+      JSON.parse(raw) as Partial<IncubatorSaveData>;
+
+    const defaultSlots =
+      createSlots();
+
+    const savedSlots =
+      Array.isArray(parsed.slots)
+        ? parsed.slots
+        : [];
+
+    const slots =
+      defaultSlots.map(
+        (defaultSlot) => {
+          const saved =
+            savedSlots.find(
+              (slot) =>
+                slot.id ===
+                defaultSlot.id
+            );
+
+          if (!saved) {
+            return defaultSlot;
+          }
+
+          return {
+            id: defaultSlot.id,
+
+            eggId:
+              typeof saved.eggId ===
+              'string'
+                ? saved.eggId
+                : '',
+
+            placedAt:
+              typeof saved.placedAt ===
+                'string' &&
+              saved.placedAt.length > 0
+                ? saved.placedAt
+                : null,
+
+            unlocked:
+              saved.unlocked === true,
+          };
+        }
+      );
+
+    const level =
+      typeof parsed.level ===
+        'number' &&
+      Number.isFinite(parsed.level)
+        ? Math.max(
+            1,
+            Math.min(
+              INCUBATOR_MAX_LEVEL,
+              Math.floor(
+                parsed.level
+              )
+            )
+          )
+        : 1;
+
+    /*
+     * Slot 1 is always unlocked.
+     */
+    slots[0].unlocked = true;
+
+    return {
+      level,
+      slots,
+    };
+  } catch {
+    return {
+      level: 1,
+      slots: createSlots(),
+    };
+  }
+}
+
+function saveIncubatorData(
+  data: IncubatorSaveData
+): void {
+  if (
+    typeof window === 'undefined'
+  ) {
+    return;
+  }
+
+  window.localStorage.setItem(
+    INCUBATOR_STORAGE_KEY,
+    JSON.stringify(data)
   );
 }
 
@@ -143,10 +267,6 @@ interface IncubatorStoreState {
   reset: () => void;
 }
 
-// ===========================================================================
-// COST CHECK
-// ===========================================================================
-
 function hasCost(
   cost: SlotCost
 ): boolean {
@@ -155,60 +275,54 @@ function hasCost(
       .resources;
 
   const gems =
-    useGemStore.getState().gems;
+    useGemStore.getState()
+      .gems;
 
   if (
     cost.coins &&
-    resources.coins <
-      cost.coins
+    resources.coins < cost.coins
   ) {
     return false;
   }
 
   if (
     cost.tokens &&
-    resources.tokens <
-      cost.tokens
+    resources.tokens < cost.tokens
   ) {
     return false;
   }
 
   if (
     cost.wood &&
-    resources.wood <
-      cost.wood
+    resources.wood < cost.wood
   ) {
     return false;
   }
 
   if (
     cost.stone &&
-    resources.stone <
-      cost.stone
+    resources.stone < cost.stone
   ) {
     return false;
   }
 
   if (
     cost.iron &&
-    resources.iron <
-      cost.iron
+    resources.iron < cost.iron
   ) {
     return false;
   }
 
   if (
     cost.gold &&
-    resources.gold <
-      cost.gold
+    resources.gold < cost.gold
   ) {
     return false;
   }
 
   if (
     cost.crystal &&
-    resources.crystal <
-      cost.crystal
+    resources.crystal < cost.crystal
   ) {
     return false;
   }
@@ -222,10 +336,6 @@ function hasCost(
 
   return true;
 }
-
-// ===========================================================================
-// PAY COST
-// ===========================================================================
 
 function payCost(
   cost: SlotCost
@@ -323,179 +433,227 @@ function payCost(
   return true;
 }
 
-// ===========================================================================
-// STORE
-// ===========================================================================
-
 export const useIncubatorStore =
   create<IncubatorStoreState>(
-    (set, get) => ({
-      level: 1,
+    (set, get) => {
+      const saved =
+        loadIncubatorData();
 
-      slots: createSlots(),
-
-      // ================================================================
-      // UNLOCK SLOT
-      // ================================================================
-
-      unlockSlot: (
-        slotId
+      const persist = (
+        level: number,
+        slots: IncubatorSlot[]
       ) => {
-        const slot =
-          get().slots.find(
-            (item) =>
-              item.id === slotId
-          );
+        saveIncubatorData({
+          level,
+          slots,
+        });
+      };
 
-        if (
-          !slot ||
-          slot.unlocked
-        ) {
-          return false;
-        }
+      return {
+        level: saved.level,
 
-        const cost =
-          INCUBATOR_SLOT_COSTS[
-            slotId - 1
-          ];
+        slots: saved.slots,
 
-        if (!cost) {
-          return false;
-        }
+        // ============================================================
+        // UNLOCK SLOT
+        // ============================================================
 
-        if (
-          !payCost(cost)
-        ) {
-          return false;
-        }
+        unlockSlot: (
+          slotId
+        ) => {
+          const slot =
+            get().slots.find(
+              (item) =>
+                item.id === slotId
+            );
 
-        set({
-          slots:
+          if (
+            !slot ||
+            slot.unlocked
+          ) {
+            return false;
+          }
+
+          /*
+           * Unlock slots in order.
+           */
+          const previousSlot =
+            get().slots.find(
+              (item) =>
+                item.id ===
+                slotId - 1
+            );
+
+          if (
+            slotId > 1 &&
+            !previousSlot?.unlocked
+          ) {
+            return false;
+          }
+
+          const cost =
+            INCUBATOR_SLOT_COSTS[
+              slotId - 1
+            ];
+
+          if (!cost) {
+            return false;
+          }
+
+          if (
+            !payCost(cost)
+          ) {
+            return false;
+          }
+
+          const nextSlots =
             get().slots.map(
               (item) =>
                 item.id === slotId
                   ? {
                       ...item,
-                      unlocked:
-                        true,
+                      unlocked: true,
                     }
                   : item
-            ),
-        });
-
-        return true;
-      },
-
-      // ================================================================
-      // PLACE EGG
-      // ================================================================
-
-      placeEgg: (
-        slotId,
-        eggId
-      ) => {
-        if (!eggId) {
-          return false;
-        }
-
-        const def =
-          getEggById(
-            eggId
-          );
-
-        if (!def) {
-          return false;
-        }
-
-        const slot =
-          get().slots.find(
-            (item) =>
-              item.id === slotId
-          );
-
-        if (
-          !slot ||
-          !slot.unlocked ||
-          slot.eggId
-        ) {
-          return false;
-        }
-
-        const removed =
-          useGameStore
-            .getState()
-            .removeFromInventory(
-              eggId,
-              1
             );
 
-        if (!removed) {
-          return false;
-        }
+          set({
+            slots:
+              nextSlots,
+          });
 
-        set({
-          slots:
+          persist(
+            get().level,
+            nextSlots
+          );
+
+          return true;
+        },
+
+        // ============================================================
+        // PLACE EGG
+        // ============================================================
+
+        placeEgg: (
+          slotId,
+          eggId
+        ) => {
+          if (!eggId) {
+            return false;
+          }
+
+          const def =
+            getEggById(
+              eggId
+            );
+
+          if (!def) {
+            return false;
+          }
+
+          const slot =
+            get().slots.find(
+              (item) =>
+                item.id === slotId
+            );
+
+          if (
+            !slot ||
+            !slot.unlocked ||
+            slot.eggId
+          ) {
+            return false;
+          }
+
+          const removed =
+            useGameStore
+              .getState()
+              .removeFromInventory(
+                eggId,
+                1
+              );
+
+          if (!removed) {
+            return false;
+          }
+
+          const placedAt =
+            new Date().toISOString();
+
+          const nextSlots =
             get().slots.map(
               (item) =>
                 item.id === slotId
                   ? {
                       ...item,
                       eggId,
-                      placedAt:
-                        new Date().toISOString(),
+                      placedAt,
                     }
                   : item
-            ),
-        });
+            );
 
-        void useGameStore
-          .getState()
-          .saveGame();
+          set({
+            slots:
+              nextSlots,
+          });
 
-        return true;
-      },
-
-      // ================================================================
-      // REMOVE EGG
-      // ================================================================
-
-      removeEgg: (
-        slotId
-      ) => {
-        const slot =
-          get().slots.find(
-            (item) =>
-              item.id === slotId
+          /*
+           * IMPORTANT:
+           * Save egg ID + placedAt immediately.
+           */
+          persist(
+            get().level,
+            nextSlots
           );
 
-        if (
-          !slot ||
-          !slot.eggId
-        ) {
-          return;
-        }
-
-        const def =
-          getEggById(
-            slot.eggId
-          );
-
-        if (def) {
-          useGameStore
+          void useGameStore
             .getState()
-            .addToInventory({
-              id: def.id,
-              name: def.name,
-              type: 'egg',
-              rarity:
-                def.rarity,
-              quantity: 1,
-              image: def.image,
-            });
-        }
+            .saveGame();
 
-        set({
-          slots:
+          return true;
+        },
+
+        // ============================================================
+        // REMOVE EGG
+        // ============================================================
+
+        removeEgg: (
+          slotId
+        ) => {
+          const slot =
+            get().slots.find(
+              (item) =>
+                item.id === slotId
+            );
+
+          if (
+            !slot ||
+            !slot.eggId
+          ) {
+            return;
+          }
+
+          const def =
+            getEggById(
+              slot.eggId
+            );
+
+          if (def) {
+            useGameStore
+              .getState()
+              .addToInventory({
+                id: def.id,
+                name: def.name,
+                type: 'egg',
+                rarity:
+                  def.rarity,
+                quantity: 1,
+                image:
+                  def.image,
+              });
+          }
+
+          const nextSlots =
             get().slots.map(
               (item) =>
                 item.id === slotId
@@ -506,84 +664,92 @@ export const useIncubatorStore =
                         null,
                     }
                   : item
-            ),
-        });
-
-        void useGameStore
-          .getState()
-          .saveGame();
-      },
-
-      // ================================================================
-      // HATCH EGG
-      // ================================================================
-
-      hatchEgg: (
-        slotId,
-        fast = false
-      ) => {
-        const slot =
-          get().slots.find(
-            (item) =>
-              item.id === slotId
-          );
-
-        if (
-          !slot ||
-          !slot.unlocked ||
-          !slot.eggId ||
-          !slot.placedAt
-        ) {
-          return false;
-        }
-
-        const def =
-          getEggById(
-            slot.eggId
-          );
-
-        if (!def) {
-          return false;
-        }
-
-        if (!fast) {
-          const duration =
-            hatchTimeMs(
-              def.rarity
             );
 
-          const readyAt =
-            new Date(
-              slot.placedAt
-            ).getTime() +
-            duration;
+          set({
+            slots:
+              nextSlots,
+          });
+
+          persist(
+            get().level,
+            nextSlots
+          );
+
+          void useGameStore
+            .getState()
+            .saveGame();
+        },
+
+        // ============================================================
+        // HATCH EGG
+        // ============================================================
+
+        hatchEgg: (
+          slotId,
+          fast = false
+        ) => {
+          const slot =
+            get().slots.find(
+              (item) =>
+                item.id === slotId
+            );
 
           if (
-            Date.now() <
-            readyAt
+            !slot ||
+            !slot.unlocked ||
+            !slot.eggId ||
+            !slot.placedAt
           ) {
             return false;
           }
-        }
 
-        const fruit =
-          def.fruit;
+          const def =
+            getEggById(
+              slot.eggId
+            );
 
-        useGameStore
-          .getState()
-          .addToInventory({
-            id: fruit.id,
-            name: fruit.name,
-            type: 'fruit',
-            rarity:
-              def.rarity,
-            quantity: 1,
-            image:
-              fruit.image,
-          });
+          if (!def) {
+            return false;
+          }
 
-        set({
-          slots:
+          if (!fast) {
+            const duration =
+              hatchTimeMs(
+                def.rarity
+              );
+
+            const readyAt =
+              new Date(
+                slot.placedAt
+              ).getTime() +
+              duration;
+
+            if (
+              Date.now() <
+              readyAt
+            ) {
+              return false;
+            }
+          }
+
+          const fruit =
+            def.fruit;
+
+          useGameStore
+            .getState()
+            .addToInventory({
+              id: fruit.id,
+              name: fruit.name,
+              type: 'fruit',
+              rarity:
+                def.rarity,
+              quantity: 1,
+              image:
+                fruit.image,
+            });
+
+          const nextSlots =
             get().slots.map(
               (item) =>
                 item.id === slotId
@@ -594,73 +760,99 @@ export const useIncubatorStore =
                         null,
                     }
                   : item
-            ),
-        });
+            );
 
-        void useGameStore
-          .getState()
-          .saveGame();
+          set({
+            slots:
+              nextSlots,
+          });
 
-        return true;
-      },
-
-      // ================================================================
-      // UPGRADE
-      // ================================================================
-
-      upgrade: () => {
-        const {
-          level,
-        } = get();
-
-        if (
-          level >=
-          INCUBATOR_MAX_LEVEL
-        ) {
-          return false;
-        }
-
-        const cost =
-          incubatorUpgradeCost(
-            level
+          persist(
+            get().level,
+            nextSlots
           );
 
-        if (
-          !useResourceStore
+          void useGameStore
             .getState()
-            .spendCoins(
-              cost
-            )
-        ) {
-          return false;
-        }
+            .saveGame();
 
-        set({
-          level:
-            level + 1,
-        });
+          return true;
+        },
 
-        void useGameStore
-          .getState()
-          .saveGame();
+        // ============================================================
+        // UPGRADE
+        // ============================================================
 
-        return true;
-      },
+        upgrade: () => {
+          const {
+            level,
+          } = get();
 
-      // ================================================================
-      // RESET
-      // ================================================================
+          if (
+            level >=
+            INCUBATOR_MAX_LEVEL
+          ) {
+            return false;
+          }
 
-      reset: () => {
-        set({
-          level: 1,
-          slots:
-            createSlots(),
-        });
+          const cost =
+            incubatorUpgradeCost(
+              level
+            );
 
-        void useGameStore
-          .getState()
-          .saveGame();
-      },
-    })
+          if (
+            !useResourceStore
+              .getState()
+              .spendCoins(
+                cost
+              )
+          ) {
+            return false;
+          }
+
+          const nextLevel =
+            level + 1;
+
+          set({
+            level:
+              nextLevel,
+          });
+
+          persist(
+            nextLevel,
+            get().slots
+          );
+
+          void useGameStore
+            .getState()
+            .saveGame();
+
+          return true;
+        },
+
+        // ============================================================
+        // RESET
+        // ============================================================
+
+        reset: () => {
+          const nextSlots =
+            createSlots();
+
+          set({
+            level: 1,
+            slots:
+              nextSlots,
+          });
+
+          persist(
+            1,
+            nextSlots
+          );
+
+          void useGameStore
+            .getState()
+            .saveGame();
+        },
+      };
+    }
   );

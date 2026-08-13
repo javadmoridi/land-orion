@@ -1,13 +1,15 @@
 import { create } from 'zustand';
 import { useEffect, useState } from 'react';
 import { useGameStore } from './useGameStore';
-import { PICKAXE_MIN_RANK, TOOLS } from './toolCatalog';
+import {
+  PICKAXE_MIN_RANK,
+  TOOLS,
+} from './toolCatalog';
 
 // ===========================================================================
-// Resource nodes on the ground: trees + mineral nodes (stone/iron/gold/crystal).
+// Resource nodes
 //
-// Harvest probability (shared by every source):
-//   85% -> 1, 10% -> 1.5, 5% -> 2
+// Every node is persisted in localStorage.
 //
 // Regrow times:
 //   tree    -> 2h
@@ -24,38 +26,63 @@ export type ResourceKind =
   | 'gold'
   | 'crystal';
 
-export type MineralKind = Exclude<ResourceKind, 'tree'>;
+export type MineralKind =
+  Exclude<ResourceKind, 'tree'>;
 
 export interface ResourceNode {
   id: string;
   kind: ResourceKind;
   x: number;
   y: number;
-  /** Footprint in grid cells (trees 5x5, minerals 2x2). */
   size: number;
   harvested: boolean;
-  /** Timestamp (ms) when the node becomes available again. */
   readyAt: number;
 }
 
-export const REGROW_MS: Record<MineralKind, number> = {
-  stone: 4 * 3600 * 1000,
-  iron: 8 * 3600 * 1000,
-  gold: 18 * 3600 * 1000,
-  crystal: 48 * 3600 * 1000,
+export const REGROW_MS: Record<
+  MineralKind,
+  number
+> = {
+  stone:
+    4 * 3600 * 1000,
+
+  iron:
+    8 * 3600 * 1000,
+
+  gold:
+    18 * 3600 * 1000,
+
+  crystal:
+    48 * 3600 * 1000,
 };
 
-export const TREE_REGROW_MS = 2 * 3600 * 1000;
+export const TREE_REGROW_MS =
+  2 * 3600 * 1000;
 
-export const NODE_IMAGE: Record<ResourceKind, string> = {
-  tree: '/assets/tree.png',
-  stone: '/assets/orion-stone.png',
-  iron: '/assets/orion-iron.png',
-  gold: '/assets/orion-gold.png',
-  crystal: '/assets/orion-crystal.png',
+export const NODE_IMAGE: Record<
+  ResourceKind,
+  string
+> = {
+  tree:
+    '/assets/tree.png',
+
+  stone:
+    '/assets/orion-stone.png',
+
+  iron:
+    '/assets/orion-iron.png',
+
+  gold:
+    '/assets/orion-gold.png',
+
+  crystal:
+    '/assets/orion-crystal.png',
 };
 
-export const NODE_LABEL: Record<ResourceKind, string> = {
+export const NODE_LABEL: Record<
+  ResourceKind,
+  string
+> = {
   tree: 'Tree',
   stone: 'Stone',
   iron: 'Iron',
@@ -63,7 +90,10 @@ export const NODE_LABEL: Record<ResourceKind, string> = {
   crystal: 'Crystal',
 };
 
-const RESOURCE_KEY: Record<ResourceKind, string> = {
+const RESOURCE_KEY: Record<
+  ResourceKind,
+  string
+> = {
   tree: 'wood',
   stone: 'stone',
   iron: 'iron',
@@ -71,8 +101,10 @@ const RESOURCE_KEY: Record<ResourceKind, string> = {
   crystal: 'crystal',
 };
 
-// Node footprint in grid cells per kind.
-const NODE_SIZE: Record<ResourceKind, number> = {
+const NODE_SIZE: Record<
+  ResourceKind,
+  number
+> = {
   tree: 5,
   stone: 4,
   iron: 4,
@@ -80,55 +112,47 @@ const NODE_SIZE: Record<ResourceKind, number> = {
   crystal: 6,
 };
 
-// 9 trees keep the bottom-right corner.
 const TREE_POS = [
   { x: 25, y: 25 },
   { x: 30, y: 25 },
   { x: 35, y: 25 },
+
   { x: 25, y: 30 },
   { x: 30, y: 30 },
   { x: 35, y: 30 },
+
   { x: 25, y: 35 },
   { x: 30, y: 35 },
   { x: 35, y: 35 },
 ];
 
-// ===========================================================================
-// MINERAL GRID
-//
-// Layout:
-//
-// [ Stone ] [ Iron ] [ Gold ]
-// [ Stone ] [ Iron ] [ Gold ]
-// [ Stone ] [ Iron ] [ Crystal ]
-// [ Stone ] [ Stone ]
-//
-// The minerals are grouped together in the bottom-left area.
-// ===========================================================================
-
-const GROUND_POS: { kind: ResourceKind; x: number; y: number }[] = [
-  // Row 1
+const GROUND_POS: {
+  kind: ResourceKind;
+  x: number;
+  y: number;
+}[] = [
   { kind: 'stone', x: 2, y: 25 },
   { kind: 'iron', x: 6, y: 25 },
   { kind: 'gold', x: 10, y: 25 },
 
-  // Row 2
   { kind: 'stone', x: 2, y: 29 },
   { kind: 'iron', x: 6, y: 29 },
   { kind: 'gold', x: 10, y: 29 },
 
-  // Row 3
   { kind: 'stone', x: 2, y: 33 },
   { kind: 'iron', x: 6, y: 33 },
   { kind: 'crystal', x: 10, y: 33 },
 
-  // Row 4
   { kind: 'stone', x: 2, y: 37 },
   { kind: 'stone', x: 6, y: 37 },
 ];
 
+const RESOURCE_NODES_STORAGE_KEY =
+  'land-orion-resource-nodes';
+
 function makeNodes(): ResourceNode[] {
-  const nodes: ResourceNode[] = [];
+  const nodes: ResourceNode[] =
+    [];
 
   TREE_POS.forEach((p) => {
     nodes.push({
@@ -157,31 +181,145 @@ function makeNodes(): ResourceNode[] {
   return nodes;
 }
 
+function loadSavedNodes(): ResourceNode[] {
+  if (
+    typeof window ===
+    'undefined'
+  ) {
+    return makeNodes();
+  }
+
+  const raw =
+    window.localStorage.getItem(
+      RESOURCE_NODES_STORAGE_KEY
+    );
+
+  if (!raw) {
+    return makeNodes();
+  }
+
+  try {
+    const parsed =
+      JSON.parse(raw);
+
+    if (
+      !Array.isArray(parsed)
+    ) {
+      return makeNodes();
+    }
+
+    const defaults =
+      makeNodes();
+
+    /*
+     * Merge saved data with current map definitions.
+     * This protects the game if new nodes are added later.
+     */
+    return defaults.map(
+      (defaultNode) => {
+        const saved =
+          parsed.find(
+            (item: unknown) =>
+              typeof item ===
+                'object' &&
+              item !== null &&
+              'id' in item &&
+              (
+                item as {
+                  id?: unknown;
+                }
+              ).id ===
+                defaultNode.id
+          ) as
+            | Partial<ResourceNode>
+            | undefined;
+
+        if (!saved) {
+          return defaultNode;
+        }
+
+        return {
+          ...defaultNode,
+
+          harvested:
+            typeof saved.harvested ===
+            'boolean'
+              ? saved.harvested
+              : defaultNode.harvested,
+
+          readyAt:
+            typeof saved.readyAt ===
+            'number'
+              ? saved.readyAt
+              : defaultNode.readyAt,
+        };
+      }
+    );
+  } catch {
+    return makeNodes();
+  }
+}
+
+function saveNodes(
+  nodes: ResourceNode[]
+): void {
+  if (
+    typeof window ===
+    'undefined'
+  ) {
+    return;
+  }
+
+  window.localStorage.setItem(
+    RESOURCE_NODES_STORAGE_KEY,
+    JSON.stringify(nodes)
+  );
+}
+
 export function isNodeAvailable(
   node: ResourceNode,
   now: number
 ): boolean {
-  return !node.harvested || now >= node.readyAt;
+  return (
+    !node.harvested ||
+    now >= node.readyAt
+  );
 }
 
-/** Roll the harvest amount: 85% -> 1, 10% -> 1.5, 5% -> 2. */
+/** 85% -> 1, 10% -> 1.5, 5% -> 2. */
 export function rollResourceAmount(): number {
-  const r = Math.random();
+  const r =
+    Math.random();
 
-  if (r < 0.85) return 1;
-  if (r < 0.95) return 1.5;
+  if (r < 0.85) {
+    return 1;
+  }
+
+  if (r < 0.95) {
+    return 1.5;
+  }
 
   return 2;
 }
 
-function regrowMsFor(kind: ResourceKind): number {
-  if (kind === 'tree') return TREE_REGROW_MS;
+function regrowMsFor(
+  kind: ResourceKind
+): number {
+  if (
+    kind === 'tree'
+  ) {
+    return TREE_REGROW_MS;
+  }
 
   return REGROW_MS[kind];
 }
 
 function getMaxPickaxeRank(
-  game: { hasItem: (id: string) => boolean }
+  game: {
+    hasItem: (
+      id: string
+    ) => boolean;
+  }
 ): number {
   const ids = [
     'stone-pickaxe',
@@ -192,22 +330,39 @@ function getMaxPickaxeRank(
 
   let max = 0;
 
-  ids.forEach((id, idx) => {
-    if (game.hasItem(id)) {
-      max = Math.max(max, idx + 1);
+  ids.forEach(
+    (id, index) => {
+      if (
+        game.hasItem(id)
+      ) {
+        max = Math.max(
+          max,
+          index + 1
+        );
+      }
     }
-  });
+  );
 
   return max;
 }
 
-function toolName(id: string): string {
-  return TOOLS.find((t) => t.id === id)?.name ?? id;
+function toolName(
+  id: string
+): string {
+  return (
+    TOOLS.find(
+      (tool) =>
+        tool.id === id
+    )?.name ?? id
+  );
 }
 
-/** The pickaxe to consume — lowest tier the player owns that meets the rank. */
 function pickaxeToConsume(
-  game: { hasItem: (id: string) => boolean },
+  game: {
+    hasItem: (
+      id: string
+    ) => boolean;
+  },
   requiredRank: number
 ): string | null {
   const ids = [
@@ -217,8 +372,15 @@ function pickaxeToConsume(
     'crystal-pickaxe',
   ];
 
-  for (let i = requiredRank - 1; i < ids.length; i++) {
-    if (game.hasItem(ids[i])) {
+  for (
+    let i =
+      requiredRank - 1;
+    i < ids.length;
+    i++
+  ) {
+    if (
+      game.hasItem(ids[i])
+    ) {
       return ids[i];
     }
   }
@@ -235,7 +397,10 @@ const PICKAXE_NAMES = [
 
 export interface HarvestResult {
   ok: boolean;
-  reason?: 'regrowing' | 'no-tool' | 'unknown';
+  reason?:
+    | 'regrowing'
+    | 'no-tool'
+    | 'unknown';
   amount?: number;
   kind?: ResourceKind;
 }
@@ -243,184 +408,327 @@ export interface HarvestResult {
 interface ResourceNodeState {
   nodes: ResourceNode[];
   message: string | null;
-  harvest: (nodeId: string) => HarvestResult;
+
+  harvest: (
+    nodeId: string
+  ) => HarvestResult;
+
   clearMessage: () => void;
 }
 
-export const useResourceNodes = create<ResourceNodeState>(
-  (set, get) => ({
-    nodes: makeNodes(),
-    message: null,
+export const useResourceNodes =
+  create<ResourceNodeState>(
+    (set, get) => ({
+      /*
+       * Load saved nodes immediately when the store is created.
+       */
+      nodes:
+        loadSavedNodes(),
 
-    harvest: (nodeId) => {
-      const now = Date.now();
+      message: null,
 
-      const node = get().nodes.find(
-        (n) => n.id === nodeId
-      );
+      // ================================================================
+      // HARVEST
+      // ================================================================
 
-      if (!node) {
-        return {
-          ok: false,
-          reason: 'unknown',
-        };
-      }
+      harvest: (nodeId) => {
+        const now =
+          Date.now();
 
-      if (!isNodeAvailable(node, now)) {
-        return {
-          ok: false,
-          reason: 'regrowing',
-        };
-      }
+        const node =
+          get().nodes.find(
+            (item) =>
+              item.id ===
+              nodeId
+          );
 
-      const game = useGameStore.getState();
-
-      if (node.kind === 'tree') {
-        if (!game.hasItem('orion-axe')) {
-          set({
-            message:
-              'You need the Orion Axe to cut trees.',
-          });
-
+        if (!node) {
           return {
             ok: false,
-            reason: 'no-tool',
+            reason:
+              'unknown',
           };
         }
-      } else {
-        const required =
-          PICKAXE_MIN_RANK[node.kind];
 
-        if (getMaxPickaxeRank(game) < required) {
-          const name =
-            PICKAXE_NAMES[required - 1];
-
-          set({
-            message:
-              required === 4
-                ? `You need the Crystal Pickaxe to mine ${NODE_LABEL[node.kind]}.`
-                : `You need a ${name} Pickaxe (or better) to mine ${NODE_LABEL[node.kind]}.`,
-          });
-
+        /*
+         * If the regrow timer has not finished,
+         * the resource cannot be harvested.
+         */
+        if (
+          !isNodeAvailable(
+            node,
+            now
+          )
+        ) {
           return {
             ok: false,
-            reason: 'no-tool',
+            reason:
+              'regrowing',
           };
         }
-      }
 
-      const amount = rollResourceAmount();
+        const game =
+          useGameStore.getState();
 
-      const key = RESOURCE_KEY[node.kind];
+        // --------------------------------------------------------------
+        // TREE
+        // --------------------------------------------------------------
 
-      game.addResource(key, amount);
+        if (
+          node.kind ===
+          'tree'
+        ) {
+          if (
+            !game.hasItem(
+              'orion-axe'
+            )
+          ) {
+            set({
+              message:
+                'You need the Orion Axe to cut trees.',
+            });
 
-      // Tools are single-use:
-      // the axe/pickaxe breaks after harvesting one item.
-      let usedTool: string | null = null;
+            return {
+              ok: false,
+              reason:
+                'no-tool',
+            };
+          }
+        }
 
-      if (node.kind === 'tree') {
-        game.removeFromInventory(
-          'orion-axe',
-          1
+        // --------------------------------------------------------------
+        // MINERALS
+        // --------------------------------------------------------------
+
+        else {
+          const required =
+            PICKAXE_MIN_RANK[
+              node.kind
+            ];
+
+          if (
+            getMaxPickaxeRank(
+              game
+            ) < required
+          ) {
+            const name =
+              PICKAXE_NAMES[
+                required - 1
+              ];
+
+            set({
+              message:
+                required === 4
+                  ? `You need the Crystal Pickaxe to mine ${NODE_LABEL[node.kind]}.`
+                  : `You need a ${name} Pickaxe (or better) to mine ${NODE_LABEL[node.kind]}.`,
+            });
+
+            return {
+              ok: false,
+              reason:
+                'no-tool',
+            };
+          }
+        }
+
+        // --------------------------------------------------------------
+        // HARVEST
+        // --------------------------------------------------------------
+
+        const amount =
+          rollResourceAmount();
+
+        const key =
+          RESOURCE_KEY[
+            node.kind
+          ];
+
+        game.addResource(
+          key,
+          amount
         );
 
-        usedTool = toolName('orion-axe');
-      } else {
-        const toolId = pickaxeToConsume(
-          game,
-          PICKAXE_MIN_RANK[node.kind]
-        );
+        // --------------------------------------------------------------
+        // CONSUME TOOL
+        // --------------------------------------------------------------
 
-        if (toolId) {
+        let usedTool:
+          | string
+          | null = null;
+
+        if (
+          node.kind ===
+          'tree'
+        ) {
           game.removeFromInventory(
-            toolId,
+            'orion-axe',
             1
           );
 
-          usedTool = toolName(toolId);
+          usedTool =
+            toolName(
+              'orion-axe'
+            );
+        } else {
+          const toolId =
+            pickaxeToConsume(
+              game,
+              PICKAXE_MIN_RANK[
+                node.kind
+              ]
+            );
+
+          if (toolId) {
+            game.removeFromInventory(
+              toolId,
+              1
+            );
+
+            usedTool =
+              toolName(
+                toolId
+              );
+          }
         }
-      }
 
-      set({
-        nodes: get().nodes.map((n) =>
-          n.id === nodeId
-            ? {
-                ...n,
-                harvested: true,
-                readyAt:
-                  now +
-                  regrowMsFor(node.kind),
-              }
-            : n
-        ),
+        // --------------------------------------------------------------
+        // START REGROW TIMER
+        // --------------------------------------------------------------
 
-        message: usedTool
-          ? `+${amount} ${NODE_LABEL[node.kind]} (${usedTool} used)`
-          : `+${amount} ${NODE_LABEL[node.kind]}`,
-      });
+        const readyAt =
+          now +
+          regrowMsFor(
+            node.kind
+          );
 
-      return {
-        ok: true,
-        amount,
-        kind: node.kind,
-      };
-    },
+        const nextNodes =
+          get().nodes.map(
+            (item) =>
+              item.id ===
+              nodeId
+                ? {
+                    ...item,
+                    harvested:
+                      true,
+                    readyAt,
+                  }
+                : item
+          );
 
-    clearMessage: () =>
-      set({
-        message: null,
-      }),
-  })
-);
+        /*
+         * IMPORTANT:
+         * Save the harvested state AND readyAt immediately.
+         */
+        set({
+          nodes:
+            nextNodes,
 
-/** Live clock hook used to tick regrow countdowns. */
+          message:
+            usedTool
+              ? `+${amount} ${NODE_LABEL[node.kind]} (${usedTool} used)`
+              : `+${amount} ${NODE_LABEL[node.kind]}`,
+        });
+
+        saveNodes(
+          nextNodes
+        );
+
+        return {
+          ok: true,
+          amount,
+          kind: node.kind,
+        };
+      },
+
+      clearMessage: () => {
+        set({
+          message: null,
+        });
+      },
+    })
+  );
+
+// ===========================================================================
+// REAL-TIME CLOCK
+// ===========================================================================
+
 export function useNow(
   intervalMs = 1000
 ): number {
-  const [now, setNow] = useState(
+  const [
+    now,
+    setNow,
+  ] = useState(
     () => Date.now()
   );
 
   useEffect(() => {
-    const t = window.setInterval(
-      () => setNow(Date.now()),
-      intervalMs
-    );
+    const timer =
+      window.setInterval(
+        () =>
+          setNow(
+            Date.now()
+          ),
+        intervalMs
+      );
 
     return () =>
-      window.clearInterval(t);
-  }, [intervalMs]);
+      window.clearInterval(
+        timer
+      );
+  }, [
+    intervalMs,
+  ]);
 
   return now;
 }
 
+// ===========================================================================
+// TIME FORMAT
+// ===========================================================================
+
 export function formatDuration(
   ms: number
 ): string {
-  const totalSeconds = Math.floor(
-    ms / 1000
-  );
+  const totalSeconds =
+    Math.max(
+      0,
+      Math.floor(
+        ms / 1000
+      )
+    );
 
-  const h = Math.floor(
-    totalSeconds / 3600
-  );
+  const h =
+    Math.floor(
+      totalSeconds / 3600
+    );
 
-  const m = Math.floor(
-    (totalSeconds % 3600) / 60
-  );
+  const m =
+    Math.floor(
+      (totalSeconds % 3600) /
+        60
+    );
 
-  const s = totalSeconds % 60;
+  const s =
+    totalSeconds % 60;
 
   if (h > 0) {
     return `${h}:${m
       .toString()
-      .padStart(2, '0')}:${s
+      .padStart(
+        2,
+        '0'
+      )}:${s
       .toString()
-      .padStart(2, '0')}`;
+      .padStart(
+        2,
+        '0')}`;
   }
 
   return `${m}:${s
     .toString()
-    .padStart(2, '0')}`;
+    .padStart(
+      2,
+      '0'
+    )}`;
 }

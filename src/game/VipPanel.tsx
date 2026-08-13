@@ -2,11 +2,13 @@ import {
   useEffect,
   useState,
 } from 'react';
+
 import type {
   CSSProperties,
 } from 'react';
 
 import { useGemStore } from '../economy/gemStore';
+
 import {
   VIP_TIERS,
   useVipStore,
@@ -50,11 +52,20 @@ function formatRemaining(
 
   return `${days}d ${String(
     hours
-  ).padStart(2, '0')}:${String(
+  ).padStart(
+    2,
+    '0'
+  )}:${String(
     minutes
-  ).padStart(2, '0')}:${String(
+  ).padStart(
+    2,
+    '0'
+  )}:${String(
     seconds
-  ).padStart(2, '0')}`;
+  ).padStart(
+    2,
+    '0'
+  )}`;
 }
 
 export function VipPanel({
@@ -79,11 +90,6 @@ export function VipPanel({
   const activeVip =
     useVipStore(
       (s) => s.activeVip
-    );
-
-  const getRemainingMs =
-    useVipStore(
-      (s) => s.getRemainingMs
     );
 
   const lastPurchase =
@@ -157,8 +163,7 @@ export function VipPanel({
       width:
         'min(500px, 96vw)',
       maxHeight: '88vh',
-      overflowY:
-        'auto',
+      overflowY: 'auto',
       background:
         'linear-gradient(180deg, #111827, #05070c)',
       border:
@@ -192,8 +197,7 @@ export function VipPanel({
             justifyContent:
               'space-between',
             gap: 12,
-            marginBottom:
-              14,
+            marginBottom: 14,
           }}
         >
           <div>
@@ -256,8 +260,7 @@ export function VipPanel({
         {vipCurrentlyActive && (
           <div
             style={{
-              marginBottom:
-                14,
+              marginBottom: 14,
               padding: 14,
               borderRadius: 12,
               background:
@@ -326,9 +329,11 @@ export function VipPanel({
               }}
             >
               Expires:{' '}
-              {new Date(
-                activeVip!.expiresAt
-              ).toLocaleString()}
+              {activeVip
+                ? new Date(
+                    activeVip.expiresAt
+                  ).toLocaleString()
+                : '-'}
             </div>
           </div>
         )}
@@ -336,8 +341,7 @@ export function VipPanel({
         {!vipCurrentlyActive && (
           <div
             style={{
-              marginBottom:
-                14,
+              marginBottom: 14,
               padding:
                 '10px 12px',
               borderRadius: 10,
@@ -378,8 +382,8 @@ export function VipPanel({
                 tier.costGems;
 
               /*
-               * When ANY VIP is active,
-               * every OTHER tier becomes locked.
+               * When any VIP is active,
+               * all other VIP tiers are locked.
                */
               const lockedByOtherVip =
                 vipCurrentlyActive &&
@@ -470,7 +474,8 @@ export function VipPanel({
                       onClick={() =>
                         purchaseVip(
                           tier.id
-                        )}
+                        )
+                      }
                       style={{
                         border:
                           'none',
@@ -559,17 +564,15 @@ export function VipPanel({
           </div>
         )}
 
-        {/* ACTIVE LOCK MESSAGE */}
+        {/* LOCK MESSAGE */}
 
         {vipCurrentlyActive && (
           <div
             style={{
-              marginTop:
-                12,
+              marginTop: 12,
               padding:
                 '10px 12px',
-              borderRadius:
-                10,
+              borderRadius: 10,
               background:
                 'rgba(255,215,0,.06)',
               border:
