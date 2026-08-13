@@ -9,7 +9,9 @@ import {
 
 import {
   GRID_SIZE,
-  createPlacementGrid,
+  LOCK_LEFT,
+  LOCK_RIGHT,
+  canPlaceItem,
   type GridSlot,
   type ItemSize,
   getOccupiedSlots,
@@ -32,13 +34,14 @@ interface PlacedItem {
 
 interface PlacementContextType {
   occupied: GridSlot[];
+
   items: PlacedItem[];
 
   registerItem(
     id: string,
     x: number,
     y: number,
-    size: ItemSize,
+    size: ItemSize
   ): void;
 
   removeItem(id: string): void;
@@ -54,16 +57,11 @@ export function usePlacementGrid() {
 }
 
 
+
 export function PlacementGrid({
   showGrid = false,
   children,
 }: PlacementGridProps) {
-
-
-  const slots = useMemo(
-    () => createPlacementGrid(),
-    []
-  );
 
 
   const [items, setItems] =
@@ -73,11 +71,11 @@ export function PlacementGrid({
 
   const occupied = useMemo(
     () =>
-      items.flatMap((item) =>
+      items.flatMap(item =>
         getOccupiedSlots(
           item.x,
           item.y,
-          item.size,
+          item.size
         )
       ),
     [items]
@@ -85,99 +83,68 @@ export function PlacementGrid({
 
 
 
-  const registerItem = useCallback(
-    (
-      id: string,
-      x: number,
-      y: number,
-      size: ItemSize,
-    ) => {
+  const registerItem =
+    useCallback(
+      (
+        id: string,
+        x: number,
+        y: number,
+        size: ItemSize
+      ) => {
+
+        setItems(old => {
+
+          const otherItems =
+            old.filter(
+              item => item.id !== id
+            );
 
 
-      setItems((old) => {
+          const allowed =
+            canPlaceItem(
+              x,
+              y,
+              size,
+              otherItems
+            );
 
 
-        const otherItems =
-          old.filter(
-            (item) =>
-              item.id !== id
-          );
+          if (!allowed) {
+            return old;
+          }
 
 
-        const newSlots =
-          getOccupiedSlots(
-            x,
-            y,
-            size,
-          );
-
-
-        const collision =
-          otherItems.some(
-            (item) => {
-
-              const itemSlots =
-                getOccupiedSlots(
-                  item.x,
-                  item.y,
-                  item.size,
-                );
-
-
-              return newSlots.some(
-                (slot) =>
-                  itemSlots.some(
-                    (other) =>
-                      other.x === slot.x &&
-                      other.y === slot.y
-                  )
-              );
-
+          return [
+            ...otherItems,
+            {
+              id,
+              x,
+              y,
+              size,
             }
-          );
+          ];
+
+        });
+
+      },
+      []
+    );
 
 
 
-        // جلوگیری از قرار گرفتن روی ساختمان دیگر
+  const removeItem =
+    useCallback(
+      (id: string) => {
 
-        if (collision) {
-          return old;
-        }
+        setItems(old =>
+          old.filter(
+            item => item.id !== id
+          )
+        );
 
-
-
-        return [
-          ...otherItems,
-          {
-            id,
-            x,
-            y,
-            size,
-          },
-        ];
-
-      });
-
-
-    },
-    []
-  );
-
-
-
-  const removeItem = useCallback(
-    (id: string) => {
-
-      setItems((old) =>
-        old.filter(
-          (item) =>
-            item.id !== id
-        )
-      );
-
-    },
-    []
-  );
+      },
+      []
+    );
 
 
 
@@ -204,65 +171,102 @@ export function PlacementGrid({
       value={contextValue}
     >
 
+
       <div
         style={{
           position:'absolute',
           inset:0,
-          width:'100%',
-          height:'100%',
+
+          display:'grid',
+
+          gridTemplateColumns:
+            `repeat(${GRID_SIZE},1fr)`,
+
+          gridTemplateRows:
+            `repeat(${GRID_SIZE},1fr)`,
+
+          pointerEvents:'none',
         }}
       >
 
+        {
+          showGrid &&
+          Array.from(
+            { length: GRID_SIZE * GRID_SIZE }
+          )
+          .map((_, index) => {
 
-        <div
-          style={{
-            position:'absolute',
-            inset:0,
-            display:'grid',
-            gridTemplateColumns:
-              `repeat(${GRID_SIZE},1fr)`,
-            gridTemplateRows:
-              `repeat(${GRID_SIZE},1fr)`,
-            pointerEvents:'none',
-          }}
-        >
+            const x = index % GRID_SIZE;
+            const y = Math.floor(index / GRID_SIZE);
 
-          {slots.map((slot) => (
+            const playable =
+              x >= LOCK_LEFT &&
+              x < GRID_SIZE - LOCK_RIGHT;
 
-            <div
-              key={slot.id}
-              data-x={slot.x}
-              data-y={slot.y}
-              style={{
-                boxSizing:'border-box',
-                border:
-                  showGrid
-                    ? '1px dashed rgba(255,255,255,0.25)'
-                    : 'none',
-              }}
-            />
+            return (
 
-          ))}
+              <div
+                key={`${x}-${y}`}
+                style={{
 
-        </div>
+                  boxSizing:'border-box',
 
+                  border:
+                    showGrid
+                    ?
+                    (
+                      playable
+                      ?
+                      '1px dashed rgba(255,255,255,0.4)'
+                      :
+                      '1px dashed rgba(255,255,255,0.12)'
+                    )
+                    :
+                    'none',
 
+                  fontSize:'9px',
 
-        <div
-          style={{
-            position:'absolute',
-            inset:0,
-            width:'100%',
-            height:'100%',
-          }}
-        >
+                  color:
+                    playable
+                    ?
+                    'rgba(255,255,255,0.85)'
+                    :
+                    'rgba(255,255,255,0.3)',
 
-          {children}
+                  display:'flex',
 
-        </div>
+                  flexDirection:'column',
 
+                  alignItems:'center',
+
+                  justifyContent:'center',
+
+                  textShadow:'0 0 3px black',
+
+                  overflow:'hidden',
+
+                }}
+              >
+
+                <span>
+                  X:{x}
+                </span>
+
+                <span>
+                  Y:{y}
+                </span>
+
+              </div>
+
+            );
+
+          })
+        }
 
       </div>
+
+
+      {children}
 
     </PlacementContext.Provider>
 

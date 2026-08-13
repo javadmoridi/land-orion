@@ -2,25 +2,13 @@ import { useState } from 'react';
 import { useResourceStore } from '../economy/resourceStore';
 import { useGameStore } from './useGameStore';
 import type { InventoryItem } from '../types';
+import { GRID_SIZE } from './placementGridUtil';
+import { SEEDS } from './seedCatalog';
 
 const IMAGE = '/assets/seed-nest.png';
 
-const GRID_SIZE = 14;
-const WIDTH = 4;
-const HEIGHT = 4;
-
-const SEEDS = [
-  { id:'seed-1', name:'Crystal Seed', image:'/assets/seed-1.png', price:1 },
-  { id:'seed-2', name:'Fire Seed', image:'/assets/seed-2.png', price:2 },
-  { id:'seed-3', name:'Ice Seed', image:'/assets/seed-3.png', price:5 },
-  { id:'seed-4', name:'Light Seed', image:'/assets/seed-4.png', price:10 },
-  { id:'seed-5', name:'Shadow Seed', image:'/assets/seed-5.png', price:20 },
-  { id:'seed-6', name:'Forest Seed', image:'/assets/seed-6.png', price:50 },
-  { id:'seed-7', name:'Moon Seed', image:'/assets/seed-7.png', price:100 },
-  { id:'seed-8', name:'Star Seed', image:'/assets/seed-8.png', price:200 },
-  { id:'seed-9', name:'Ancient Seed', image:'/assets/seed-9.png', price:500 },
-  { id:'seed-10', name:'Orion Seed', image:'/assets/seed-10.png', price:1000 },
-];
+const WIDTH = 10;
+const HEIGHT = 10;
 
 interface Props {
   x?: number;
@@ -28,8 +16,8 @@ interface Props {
 }
 
 export function SeedNest({
-  x = 6,
-  y = 0,
+  x = 10,
+  y = 4,
 }: Props) {
 
   const [openShop, setOpenShop] = useState(false);
@@ -61,6 +49,7 @@ export function SeedNest({
       name: seed.name,
       type:'seed',
       quantity:1,
+      image: seed.image,
     };
 
 

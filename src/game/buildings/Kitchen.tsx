@@ -1,14 +1,13 @@
 import { useState } from 'react';
+import { GRID_SIZE } from '../placementGridUtil';
 
 const KITCHEN_IMAGE = '/assets/orion-kitchen.png';
-
-const GRID_SIZE = 14;
 
 const X = 5;
 const Y = 4;
 
-const WIDTH = 4;
-const HEIGHT = 4;
+const WIDTH = 10;
+const HEIGHT = 10;
 
 export function Kitchen() {
 

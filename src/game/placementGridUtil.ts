@@ -1,147 +1,158 @@
-// Item placement system
-// Island = 14 x 14 = 196 slots
+export const GRID_SIZE = 40;
 
-export const GRID_SIZE = 14;
-export const GRID_SLOTS = GRID_SIZE * GRID_SIZE;
+// فاصله از دیواره راست/چپ در خود PlayerIsland اعمال می‌شود (LOCK = 0)
+export const LOCK_LEFT = 0;
+
+// فاصله از دیواره راست/چپ در خود PlayerIsland اعمال می‌شود (LOCK = 0)
+export const LOCK_RIGHT = 0;
+
 
 export interface GridSlot {
-  x: number;
-  y: number;
-  id: string;
+  id:string;
+  x:number;
+  y:number;
 }
 
-export interface GridPoint {
-  x: number;
-  y: number;
-}
 
-export interface ItemSize {
-  width: number;
-  height: number;
-}
+export type ItemSize =
+  | number
+  | {
+      width:number;
+      height:number;
+    };
 
-// Create all 196 land slots
-export function createPlacementGrid(
-  size: number = GRID_SIZE,
-): GridSlot[] {
-  const slots: GridSlot[] = [];
 
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
+
+// گرید 40x40 با حاشیه چپ و راست
+export function createPlacementGrid():GridSlot[] {
+
+  const slots:GridSlot[] = [];
+
+
+  for(let y = 0; y < GRID_SIZE; y++){
+
+    for(
+      let x = LOCK_LEFT;
+      x < GRID_SIZE - LOCK_RIGHT;
+      x++
+    ){
+
       slots.push({
+        id:`${x}-${y}`,
         x,
         y,
-        id: `slot-${x}-${y}`,
       });
+
     }
+
   }
 
+
   return slots;
+
 }
 
 
-// Convert grid position to percent
-export function gridSlotToPercent(
-  x: number,
-  y: number,
-  size: number = GRID_SIZE,
-): GridPoint {
-  return {
-    x: (x / size) * 100,
-    y: (y / size) * 100,
-  };
-}
 
-
-// Get all slots occupied by an item
 export function getOccupiedSlots(
-  x: number,
-  y: number,
-  item: ItemSize,
-): GridSlot[] {
-  const slots: GridSlot[] = [];
+  x:number,
+  y:number,
+  size:ItemSize
+):GridSlot[] {
 
-  for (let row = 0; row < item.height; row++) {
-    for (let col = 0; col < item.width; col++) {
-      slots.push({
-        x: x + col,
-        y: y + row,
-        id: `slot-${x + col}-${y + row}`,
-      });
+
+  const slots:GridSlot[] = [];
+
+
+  const width =
+    typeof size === 'number'
+    ? size
+    : size.width;
+
+
+  const height =
+    typeof size === 'number'
+    ? size
+    : size.height;
+
+
+
+  for(let yy = 0; yy < height; yy++){
+
+    for(let xx = 0; xx < width; xx++){
+
+
+      const slotX = x + xx;
+      const slotY = y + yy;
+
+
+
+      if(
+        slotX >= LOCK_LEFT &&
+        slotX < GRID_SIZE - LOCK_RIGHT &&
+        slotY >= 0 &&
+        slotY < GRID_SIZE
+      ){
+
+        slots.push({
+
+          id:`${slotX}-${slotY}`,
+
+          x:slotX,
+
+          y:slotY,
+
+        });
+
+      }
+
     }
+
   }
 
+
   return slots;
+
 }
 
 
-// Check item stays inside 14x14 island
-export function isInsideGrid(
-  x: number,
-  y: number,
-  item: ItemSize,
-): boolean {
-  return (
-    x >= 0 &&
-    y >= 0 &&
-    x + item.width <= GRID_SIZE &&
-    y + item.height <= GRID_SIZE
-  );
-}
-
-
-// Check if item can be placed
 export function canPlaceItem(
-  x: number,
-  y: number,
-  item: ItemSize,
-  occupied: GridSlot[],
-): boolean {
+  x:number,
+  y:number,
+  size:ItemSize,
+  occupied:GridSlot[],
+):boolean {
 
-  if (!isInsideGrid(x, y, item)) {
+  const width =
+    typeof size === 'number'
+    ? size
+    : size.width;
+
+  const height =
+    typeof size === 'number'
+    ? size
+    : size.height;
+
+
+  if (
+    x < LOCK_LEFT ||
+    y < 0 ||
+    x + width > GRID_SIZE - LOCK_RIGHT ||
+    y + height > GRID_SIZE
+  ) {
     return false;
   }
 
-  const newSlots = getOccupiedSlots(
-    x,
-    y,
-    item,
+
+  const newSlots =
+    getOccupiedSlots(x, y, { width, height });
+
+
+  return !newSlots.some(slot =>
+    occupied.some(other =>
+      other.x === slot.x &&
+      other.y === slot.y
+    )
   );
 
-  return !newSlots.some((newSlot) =>
-    occupied.some(
-      (slot) =>
-        slot.x === newSlot.x &&
-        slot.y === newSlot.y,
-    ),
-  );
-}
-
-
-// Convert mouse/touch position to grid slot
-export function pointerToGridSlot(
-  rect: DOMRect,
-  clientX: number,
-  clientY: number,
-  size: number = GRID_SIZE,
-): GridSlot {
-
-  const relativeX = Math.max(
-    0,
-    Math.min(1, (clientX - rect.left) / rect.width),
-  );
-
-  const relativeY = Math.max(
-    0,
-    Math.min(1, (clientY - rect.top) / rect.height),
-  );
-
-  const x = Math.floor(relativeX * size);
-  const y = Math.floor(relativeY * size);
-
-  return {
-    x,
-    y,
-    id: `slot-${x}-${y}`,
-  };
 }

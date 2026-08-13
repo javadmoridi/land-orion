@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePlacementGrid } from '../PlacementGrid';
-import { canPlaceItem, GRID_SIZE } from '../placementGridUtil';
+import {
+  canPlaceItem,
+  getOccupiedSlots,
+  GRID_SIZE,
+  LOCK_LEFT,
+  LOCK_RIGHT,
+} from '../placementGridUtil';
 
 interface BuildingBaseProps {
   id: string;
@@ -12,8 +18,8 @@ interface BuildingBaseProps {
   children?: ReactNode;
 }
 
-const BUILDING_WIDTH = 4;
-const BUILDING_HEIGHT = 4;
+const BUILDING_WIDTH = 10;
+const BUILDING_HEIGHT = 10;
 
 export function BuildingBase({
   id,
@@ -36,8 +42,6 @@ export function BuildingBase({
   const timer = useRef<number | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
 
-  const occupied = placement?.occupied ?? [];
-
   useEffect(() => {
     placement?.registerItem(
       id,
@@ -48,7 +52,7 @@ export function BuildingBase({
         height: BUILDING_HEIGHT,
       }
     );
-  }, []);
+  }, [id, position.x, position.y]);
 
   function pointerDown(e: React.PointerEvent) {
 
@@ -78,7 +82,7 @@ export function BuildingBase({
     if (!dragging) return;
 
     const gridLayer =
-      e.currentTarget.parentElement?.parentElement;
+      e.currentTarget.parentElement;
 
     if (!gridLayer) return;
 
@@ -104,9 +108,9 @@ export function BuildingBase({
 
 
     gx = Math.max(
-      0,
+      LOCK_LEFT,
       Math.min(
-        GRID_SIZE - BUILDING_WIDTH,
+        GRID_SIZE - LOCK_RIGHT - BUILDING_WIDTH,
         gx
       )
     );
@@ -138,6 +142,19 @@ export function BuildingBase({
 
     if (dragging) {
 
+      const otherItems =
+        (placement?.items ?? [])
+        .filter(item => item.id !== id);
+
+      const othersOccupied =
+        otherItems.flatMap(item =>
+          getOccupiedSlots(
+            item.x,
+            item.y,
+            item.size
+          )
+        );
+
       const allowed =
         canPlaceItem(
           position.x,
@@ -146,7 +163,7 @@ export function BuildingBase({
             width: BUILDING_WIDTH,
             height: BUILDING_HEIGHT,
           },
-          occupied
+          othersOccupied
         );
 
 

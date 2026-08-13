@@ -1,130 +1,320 @@
-// XP required to go from `level` to `level + 1`
-// formula: xpRequired(level) = 20 * Math.pow(1.2, level - 1)
 import { useState } from 'react';
 import { VipPanel } from './VipPanel';
 
-export function xpRequiredForLevel(level: number): number {
-  return Math.round(20 * Math.pow(1.2, level - 1));
+export function xpRequiredForLevel(
+  level: number
+): number {
+  return Math.round(
+    20 * Math.pow(1.2, level - 1)
+  );
 }
 
-// Orion character sprite shown inside the HUD circle
-const ORION_CHARACTER_IMAGE = '/assets/orion-character.png';
+const VIP_IMAGE =
+  '/assets/orion-vip-button.png';
 
 interface LevelBadgeProps {
   level: number;
   experience: number;
 }
 
-/**
- * Floating HUD circle on the right side of the screen.
- * Shows the Orion character image inside the circle,
- * current level in the center, XP below, and a progress ring
- * around the circle representing XP progress toward the next level.
- *
- * XP progression:
- * Level 1 = 20 XP
- * Level 2 = 24 XP
- * Level 3 = 29 XP
- * ...
- * formula: xpRequired(level) = 20 * Math.pow(1.2, level - 1)
- */
-export function LevelBadge({ level, experience }: LevelBadgeProps) {
-  const [vipOpen, setVipOpen] = useState(false);
-  const xpToNext = xpRequiredForLevel(level);
-  const progress = Math.min(experience / xpToNext, 1);
-  const circumference = 2 * Math.PI * 45; // r=45
-  const dashOffset = circumference * (1 - progress);
+export function LevelBadge({
+  level: _level,
+  experience: _experience,
+}: LevelBadgeProps) {
+  const [vipOpen, setVipOpen] =
+    useState(false);
+
+  const [shopOpen, setShopOpen] =
+    useState(false);
+
+  const [battleOpen, setBattleOpen] =
+    useState(false);
 
   return (
     <>
-    <div
-      style={{
-        position: 'fixed',
-        top: '1rem',
-        right: '1rem',
-        zIndex: 10,
-        width: 120,
-        height: 120,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-      }}
-      onClick={() => setVipOpen(true)}
-      title="Open VIP"
-    >
-      {/* Progress ring */}
-      <svg width="120" height="120" viewBox="0 0 120 120" style={{ position: 'absolute', inset: 0 }}>
-        {/* Background ring */}
-        <circle
-          cx="60"
-          cy="60"
-          r="45"
-          fill="none"
-          stroke="rgba(255,255,255,0.1)"
-          strokeWidth="8"
-        />
-        {/* Progress ring */}
-        <circle
-          cx="60"
-          cy="60"
-          r="45"
-          fill="none"
-          stroke="#ffd700"
-          strokeWidth="8"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={dashOffset}
-          transform="rotate(-90 60 60)"
-          style={{ transition: 'stroke-dashoffset 0.5s ease' }}
-        />
-      </svg>
-
-      {/* Inner circle with Orion character + level info */}
       <div
         style={{
+          position: 'fixed',
+          top: '1rem',
+          right: '1rem',
+          zIndex: 100,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
-          textAlign: 'center',
-          background: 'rgba(10, 14, 26, 0.85)',
-          backdropFilter: 'blur(8px)',
-          borderRadius: '50%',
-          width: 96,
-          height: 96,
-          border: '2px solid rgba(255, 215, 0, 0.3)',
-          boxShadow: '0 0 20px rgba(255, 215, 0, 0.15)',
-          overflow: 'hidden',
-          position: 'relative',
+          gap: 10,
         }}
       >
-        {/* Orion character image – fits inside the circle */}
-        <div
+        {/* VIP */}
+        <button
+          type="button"
+          onClick={() =>
+            setVipOpen(true)
+          }
+          title="VIP"
           style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage: `url(${ORION_CHARACTER_IMAGE})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            imageRendering: 'pixelated',
-            opacity: 0.35,
+            width: 90,
+            height: 90,
+            padding: 0,
+            border: 'none',
+            borderRadius: '50%',
+            background:
+              'transparent',
+            cursor: 'pointer',
+            overflow: 'hidden',
           }}
-        />
-        {/* Level text on top of character */}
-        <span style={{ fontSize: '0.6rem', color: '#8fb5ff', letterSpacing: '0.1em', position: 'relative', zIndex: 1 }}>
-          LEVEL
-        </span>
-        <span style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#fff', lineHeight: 1.1, position: 'relative', zIndex: 1 }}>
-          {level}
-        </span>
-        <span style={{ fontSize: '0.55rem', color: '#ffd700', position: 'relative', zIndex: 1 }}>
-          {experience}/{xpToNext} XP
-        </span>
-      </div>
-    </div>
+        >
+          <img
+            src={VIP_IMAGE}
+            alt="VIP"
+            draggable={false}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              imageRendering:
+                'pixelated',
+              display: 'block',
+            }}
+          />
+        </button>
 
-    <VipPanel open={vipOpen} onClose={() => setVipOpen(false)} />
+        {/* SHOP */}
+        <button
+          type="button"
+          onClick={() =>
+            setShopOpen(true)
+          }
+          title="Shop"
+          style={{
+            width: 90,
+            height: 90,
+            padding: 0,
+            border: 'none',
+            borderRadius: '50%',
+            background:
+              'transparent',
+            cursor: 'pointer',
+            overflow: 'hidden',
+          }}
+        >
+          <img
+            src="/assets/orion-shop-button.png"
+            alt="Shop"
+            draggable={false}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              imageRendering:
+                'pixelated',
+              display: 'block',
+            }}
+          />
+        </button>
+
+        {/* BATTLE */}
+        <button
+          type="button"
+          onClick={() =>
+            setBattleOpen(true)
+          }
+          title="Battle"
+          style={{
+            width: 90,
+            height: 90,
+            padding: 0,
+            border: 'none',
+            borderRadius: '50%',
+            background:
+              'transparent',
+            cursor: 'pointer',
+            overflow: 'hidden',
+          }}
+        >
+          <img
+            src="/assets/orion-battle-button.png"
+            alt="Battle"
+            draggable={false}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              imageRendering:
+                'pixelated',
+              display: 'block',
+            }}
+          />
+        </button>
+      </div>
+
+      <VipPanel
+        open={vipOpen}
+        onClose={() =>
+          setVipOpen(false)
+        }
+      />
+
+      {/* SHOP WINDOW */}
+      {shopOpen && (
+        <div
+          onClick={() =>
+            setShopOpen(false)
+          }
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            background:
+              'rgba(0,0,0,.72)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent:
+              'center',
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+            style={{
+              width:
+                'min(700px, 94vw)',
+              maxHeight: '88vh',
+              overflow: 'auto',
+              background:
+                '#171717',
+              color: '#fff',
+              borderRadius: 18,
+              padding: 24,
+              border:
+                '1px solid rgba(255,215,0,.3)',
+              boxShadow:
+                '0 0 40px rgba(0,0,0,.5)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent:
+                  'space-between',
+                alignItems:
+                  'center',
+              }}
+            >
+              <h2
+                style={{
+                  margin: 0,
+                }}
+              >
+                ORION SHOP
+              </h2>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShopOpen(false)
+                }
+                style={{
+                  border: 'none',
+                  borderRadius: 8,
+                  padding:
+                    '7px 12px',
+                  background:
+                    'rgba(255,255,255,.08)',
+                  color: '#fff',
+                  cursor:
+                    'pointer',
+                  fontWeight: 800,
+                }}
+              >
+                EXIT
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BATTLE WINDOW */}
+      {battleOpen && (
+        <div
+          onClick={() =>
+            setBattleOpen(false)
+          }
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            background:
+              'rgba(0,0,0,.72)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent:
+              'center',
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+            style={{
+              width:
+                'min(700px, 94vw)',
+              maxHeight: '88vh',
+              overflow: 'auto',
+              background:
+                '#171717',
+              color: '#fff',
+              borderRadius: 18,
+              padding: 24,
+              border:
+                '1px solid rgba(255,90,90,.3)',
+              boxShadow:
+                '0 0 40px rgba(0,0,0,.5)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent:
+                  'space-between',
+                alignItems:
+                  'center',
+              }}
+            >
+              <h2
+                style={{
+                  margin: 0,
+                }}
+              >
+                ORION BATTLE
+              </h2>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setBattleOpen(false)
+                }
+                style={{
+                  border: 'none',
+                  borderRadius: 8,
+                  padding:
+                    '7px 12px',
+                  background:
+                    'rgba(255,255,255,.08)',
+                  color: '#fff',
+                  cursor:
+                    'pointer',
+                  fontWeight: 800,
+                }}
+              >
+                EXIT
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

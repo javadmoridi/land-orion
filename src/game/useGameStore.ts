@@ -56,6 +56,14 @@ interface GameStoreState {
   interactWithTile: (tile: WorldTile) => void;
   selectTile: (tile: WorldTile | null) => void;
   addToInventory: (item: InventoryItem) => void;
+  /** Remove a quantity of an inventory item (used by the incubator). */
+  removeFromInventory: (id: string, quantity?: number) => boolean;
+  /** Add to a numeric resource (wood/stone/iron/gold/crystal), fractional OK. */
+  addResource: (key: string, amount: number) => void;
+  /** Spend from a numeric resource; returns false if insufficient. */
+  spendResource: (key: string, amount: number) => boolean;
+  /** True when the player owns at least one of an inventory item. */
+  hasItem: (id: string) => boolean;
 }
 
 const GRID_SIZE = 10;
@@ -84,7 +92,6 @@ function createWorldTiles(): WorldTile[] {
 
       if (
         (x === 4 && y === 4) ||
-        (x === 5 && y === 4) ||
         (x === 4 && y === 5)
       ) {
         type = 'farm';
@@ -534,5 +541,121 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     void get().saveGame();
   },
+
+  removeFromInventory: (id, quantity = 1) => {
+    const {
+      gameState,
+      playerProfile,
+    } = get();
+
+    const inventory =
+      gameState?.inventory ??
+      playerProfile?.inventory ??
+      [];
+
+    const existing =
+      inventory.find((i) => i.id === id);
+
+    if (!existing || existing.quantity < quantity) {
+      return false;
+    }
+
+    const next =
+      inventory
+        .map((i) =>
+          i.id === id
+            ? { ...i, quantity: i.quantity - quantity }
+            : i
+        )
+        .filter((i) => i.quantity > 0);
+
+    set({
+      gameState:
+        gameState
+          ? {
+              ...gameState,
+              inventory: next,
+            }
+          : {
+              playerId: playerProfile?.id ?? 'player',
+              progress: {
+                completedMissions: [],
+                currentMissionId: 'intro-mission',
+                lastAction: 'removed-inventory',
+              },
+              inventory: next,
+              resources: {},
+              currency: {},
+              status: 'in-game',
+            },
+    });
+
+    void get().saveGame();
+    return true;
+  },
+
+  addResource: (key, amount) => {
+    const { gameState, playerProfile } = get();
+    const resources = { ...(gameState?.resources ?? {}) };
+    resources[key] = (resources[key] ?? 0) + amount;
+
+    set({
+      gameState:
+        gameState
+          ? { ...gameState, resources }
+          : {
+              playerId: playerProfile?.id ?? 'player',
+              progress: {
+                completedMissions: [],
+                currentMissionId: 'intro-mission',
+                lastAction: 'add-resource',
+              },
+              inventory: [],
+              resources,
+              currency: {},
+              status: 'in-game',
+            },
+    });
+
+    void get().saveGame();
+  },
+
+  spendResource: (key, amount) => {
+    const { gameState, playerProfile } = get();
+    const resources = { ...(gameState?.resources ?? {}) };
+    const current = resources[key] ?? 0;
+
+    if (current < amount) return false;
+
+    resources[key] = current - amount;
+
+    set({
+      gameState:
+        gameState
+          ? { ...gameState, resources }
+          : {
+              playerId: playerProfile?.id ?? 'player',
+              progress: {
+                completedMissions: [],
+                currentMissionId: 'intro-mission',
+                lastAction: 'spend-resource',
+              },
+              inventory: [],
+              resources,
+              currency: {},
+              status: 'in-game',
+            },
+    });
+
+    void get().saveGame();
+    return true;
+  },
+
+  hasItem: (id) =>
+    (
+      get().gameState?.inventory ??
+      get().playerProfile?.inventory ??
+      []
+    ).some((i) => i.id === id && i.quantity > 0),
 
 }));
