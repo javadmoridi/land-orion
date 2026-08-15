@@ -6,6 +6,21 @@ export type OrionUnitStatus =
   | 'battle'
   | 'hospital';
 
+/**
+ * Enhanced runtime state for an Orion unit.
+ * Tracks battle/hospital timestamps for real-time recovery.
+ */
+export interface OrionUnitRuntime {
+  id: string;
+  status: OrionUnitStatus;
+  battleStartedAt?: number;   // timestamp when battle started
+  battleEndsAt?: number;      // timestamp when battle finishes
+  hospitalStartedAt?: number; // timestamp when hospital stay started
+  hospitalEndsAt?: number;    // timestamp when hospital finishes
+  battleDurationMs?: number;  // original battle duration
+  hospitalDurationMs?: number;// original hospital duration
+}
+
 export interface WalletSession {
   address: WalletAddress;
   connectedAt: string;
@@ -76,6 +91,12 @@ export interface GameState {
    * Orions not present in this object are treated as "ready".
    */
   orionStates?: OrionUnitState[];
+
+  /**
+   * Enhanced runtime state for Orions with battle/hospital tracking.
+   * Keyed by Orion unit ID.
+   */
+  orionRuntime?: Record<string, OrionUnitRuntime>;
 
   /**
    * Miner progression and production state.

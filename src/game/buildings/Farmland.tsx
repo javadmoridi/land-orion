@@ -13,15 +13,17 @@ interface Props {
   tileId: string;
 }
 
-/** A 2x2 farmland plot. Empty plots never produce until the player buys a
- *  seed and plants it; clicking an empty plot opens the plant window. */
 export function Farmland({ tileId }: Props) {
-  const tile = useFarmStore((s) => s.tiles.find((t) => t.id === tileId));
+  const tile = useFarmStore((s) =>
+    s.tiles.find((t) => t.id === tileId)
+  );
+
   const plantSeed = useFarmStore((s) => s.plantSeed);
   const harvestFruit = useFarmStore((s) => s.harvestFruit);
 
   const gameState = useGameStore((s) => s.gameState);
   const inventory = gameState?.inventory ?? [];
+
   const ownedSeeds = inventory.filter(
     (i) => i.type === 'seed' && i.quantity > 0
   );
@@ -31,15 +33,25 @@ export function Farmland({ tileId }: Props) {
 
   if (!tile) return null;
 
-  const seed = tile.seedId ? getSeedById(tile.seedId) : undefined;
+  const seed = tile.seedId
+    ? getSeedById(tile.seedId)
+    : undefined;
+
   const ready = isFarmReady(tile, now);
   const growing = isFarmGrowing(tile, now);
-    const remaining = tile.readyAt ? tile.readyAt - now : 0;
 
-  // RAW when empty, the sprout image while growing, the fruit image when ripe.
-  let bg = RAW_IMAGE;
+  const remaining = tile.readyAt
+    ? tile.readyAt - now
+    : 0;
+
+  let image = RAW_IMAGE;
+
   if (tile.seedId) {
-    bg = ready ? seed?.fruitImage ?? PLANTED_IMAGE : PLANTED_IMAGE;
+    if (ready && seed?.fruitImage) {
+      image = seed.fruitImage;
+    } else {
+      image = PLANTED_IMAGE;
+    }
   }
 
   return (
@@ -47,8 +59,12 @@ export function Farmland({ tileId }: Props) {
       <div
         onClick={() => {
           if (growing) return;
-          if (!tile.seedId) setShowPlant(true);
-          else if (ready) harvestFruit(tile.id);
+
+          if (!tile.seedId) {
+            setShowPlant(true);
+          } else if (ready) {
+            harvestFruit(tile.id);
+          }
         }}
         style={{
           position: 'absolute',
@@ -57,13 +73,16 @@ export function Farmland({ tileId }: Props) {
           width: `${(FARMLAND_SIZE / GRID_SIZE) * 100}%`,
           height: `${(FARMLAND_SIZE / GRID_SIZE) * 100}%`,
           zIndex: 3,
-          cursor: !tile.seedId || ready ? 'pointer' : 'default',
+          cursor:
+            !tile.seedId || ready
+              ? 'pointer'
+              : 'default',
           opacity: growing ? 0.65 : 1,
         }}
       >
         <img
-          src={bg}
-          alt="Farmland"
+          src={image}
+          alt="farm"
           draggable={false}
           style={{
             width: '100%',
@@ -131,41 +150,46 @@ export function Farmland({ tileId }: Props) {
               color: 'white',
               padding: 20,
               borderRadius: 14,
-              width: 'min(520px, 94vw)',
+              width: 'min(520px,94vw)',
               maxHeight: '80vh',
               overflow: 'auto',
             }}
           >
-            <h2 style={{ marginTop: 0 }}>Plant a Seed</h2>
+            <h2>
+              Plant a Seed
+            </h2>
 
             {ownedSeeds.length === 0 ? (
-              <p style={{ color: '#9fb0d0' }}>
-                No seeds — buy some at the Seed Shop 🪴
+              <p>
+                No seeds — buy some at the Seed Shop
               </p>
             ) : (
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gridTemplateColumns:
+                    'repeat(3,1fr)',
                   gap: 12,
                 }}
               >
                 {ownedSeeds.map((item) => {
-                  const def = getSeedById(item.id);
+                  const def =
+                    getSeedById(item.id);
+
                   if (!def) return null;
+
                   return (
                     <button
                       key={item.id}
                       onClick={() => {
-                        if (plantSeed(tile.id, def.id)) setShowPlant(false);
-                      }}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: 8,
-                        cursor: 'pointer',
+                        if (
+                          plantSeed(
+                            tile.id,
+                            def.id
+                          )
+                        ) {
+                          setShowPlant(false);
+                        }
                       }}
                     >
                       <img
@@ -174,11 +198,15 @@ export function Farmland({ tileId }: Props) {
                         width={42}
                         height={42}
                         draggable={false}
-                        style={{ imageRendering: 'pixelated' }}
+                        style={{
+                          imageRendering:
+                            'pixelated',
+                        }}
                       />
-                      <span style={{ fontSize: '0.8rem' }}>
+
+                      <div>
                         {def.name} ×{item.quantity}
-                      </span>
+                      </div>
                     </button>
                   );
                 })}
@@ -186,12 +214,9 @@ export function Farmland({ tileId }: Props) {
             )}
 
             <button
-              onClick={() => setShowPlant(false)}
-              style={{
-                marginTop: 16,
-                padding: '8px 20px',
-                cursor: 'pointer',
-              }}
+              onClick={() =>
+                setShowPlant(false)
+              }
             >
               Close
             </button>

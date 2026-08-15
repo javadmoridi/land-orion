@@ -1,10 +1,12 @@
 import { useEffect, useCallback } from 'react';
+
 import { useGameStore } from './useGameStore';
 import { useResourceStore } from '../economy/resourceStore';
 import { useGemStore } from '../economy/gemStore';
 import { useVipStore } from '../economy/vipStore';
 import { usePaymentStore } from '../economy/paymentStore';
 
+import { useOrionStore } from './orionStore';
 import { OrionBackground } from './OrionBackground';
 import { PlayerIsland } from './PlayerIsland';
 import { LevelBadge } from './LevelBadge';
@@ -65,6 +67,22 @@ export function GameWorld() {
     playerProfile,
   ]);
 
+    const tickRuntime =
+    useOrionStore(
+      (s) => s.tickRuntime
+    );
+
+  // Tick Orion runtime (battle/hospital) every second
+  useEffect(() => {
+    const timer =
+      window.setInterval(() => {
+        tickRuntime();
+      }, 1000);
+
+    return () =>
+      window.clearInterval(timer);
+  }, [tickRuntime]);
+
   const handleKeyDown =
     useCallback(
       (e: KeyboardEvent) => {
@@ -117,7 +135,9 @@ export function GameWorld() {
         handleKeyDown
       );
     };
-  }, [handleKeyDown]);
+  }, [
+    handleKeyDown,
+  ]);
 
   const activePlayer =
     playerProfile ?? {
@@ -134,7 +154,7 @@ export function GameWorld() {
     >
       <OrionBackground />
 
-      {/* Right side: VIP / SHOP / BATTLE */}
+      {/* VIP / SHOP / BATTLE */}
       <LevelBadge
         level={activePlayer.level}
         experience={0}
@@ -162,8 +182,7 @@ export function GameWorld() {
             gameState?.inventory?.map(
               (item) => ({
                 id: item.id,
-                quantity:
-                  item.quantity,
+                quantity: item.quantity,
               })
             ) ?? []
           }

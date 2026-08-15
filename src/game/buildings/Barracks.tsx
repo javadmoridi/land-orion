@@ -1,4 +1,5 @@
 import { useState } from 'react';
+
 import {
   GRID_SIZE,
   LOCK_LEFT,
@@ -14,6 +15,8 @@ import {
 import type { OrionRace } from '../orionStore';
 
 import { useResourceStore } from '../../economy/resourceStore';
+
+import { OrionStatsBadge } from '../OrionStatsBadge';
 
 const BARRACKS_IMAGE =
   '/assets/orion-barracks.png';
@@ -64,15 +67,6 @@ const RACE_INFO = {
   }
 >;
 
-/**
- * Every level of a race uses the same race image.
- *
- * Water -> /assets/orion-water.png
- * Air   -> /assets/orion-air.png
- * Earth -> /assets/orion-earth.png
- * Fire  -> /assets/orion-fire.png
- * Asil  -> /assets/orion-asil.png
- */
 function dragonImage(
   race: OrionRace
 ): string {
@@ -87,7 +81,9 @@ export function Barracks({
     useState(false);
 
   const [selectedRace, setSelectedRace] =
-    useState<OrionRace | null>(null);
+    useState<OrionRace | null>(
+      null
+    );
 
   const [msg, setMsg] =
     useState<string | null>(null);
@@ -95,6 +91,11 @@ export function Barracks({
   const orions =
     useOrionStore(
       (s) => s.orions
+    );
+
+          const getReadyOrions =
+    useOrionStore(
+      (s) => s.getReadyOrions
     );
 
   const mergeOrions =
@@ -130,12 +131,15 @@ export function Barracks({
     )
   );
 
+  const readyOrions =
+    getReadyOrions();
+
   const raceCounts =
     ORION_RACES.map(
       (race) => ({
         race,
         count:
-          orions.filter(
+          readyOrions.filter(
             (o) =>
               o.race === race
           ).length,
@@ -163,7 +167,7 @@ export function Barracks({
     level: number
   ) {
     const candidates =
-      orions.filter(
+      readyOrions.filter(
         (o) =>
           o.race === race &&
           o.level === level
@@ -219,13 +223,17 @@ export function Barracks({
 
   function openBarracks() {
     setOpen(true);
-    setSelectedRace(null);
+    setSelectedRace(
+      null
+    );
     setMsg(null);
   }
 
   return (
     <>
-      {/* BARRACKS */}
+      {/* ============================================================
+          BARRACKS BUILDING
+      ============================================================ */}
 
       <button
         type="button"
@@ -292,7 +300,9 @@ export function Barracks({
         />
       </button>
 
-      {/* BARRACKS WINDOW */}
+      {/* ============================================================
+          BARRACKS WINDOW
+      ============================================================ */}
 
       {open && (
         <div
@@ -431,7 +441,9 @@ export function Barracks({
               </div>
             )}
 
-            {/* RACE SELECT */}
+            {/* ======================================================
+                RACE SELECT
+            ======================================================= */}
 
             {!selectedRace ? (
               <>
@@ -552,7 +564,9 @@ export function Barracks({
               </>
             ) : (
               <>
-                {/* SELECTED RACE */}
+                {/* ==================================================
+                    SELECTED RACE HEADER
+                =================================================== */}
 
                 <div
                   style={{
@@ -650,7 +664,9 @@ export function Barracks({
                   </div>
                 </div>
 
-                {/* ORION CARDS */}
+                {/* ==================================================
+                    ORION CARDS
+                =================================================== */}
 
                 {selectedOrions.length ===
                 0 ? (
@@ -688,11 +704,6 @@ export function Barracks({
                   >
                     {selectedOrions.map(
                       (orion) => {
-                        /*
-                         * Important:
-                         * level does NOT change the image.
-                         * Every level uses the image of its race.
-                         */
                         const src =
                           dragonImage(
                             orion.race
@@ -731,7 +742,7 @@ export function Barracks({
                               border: `1px solid ${info.color}44`,
                             }}
                           >
-                            {/* RACE IMAGE */}
+                            {/* ORION IMAGE + STATS BADGE */}
 
                             <div
                               style={{
@@ -745,7 +756,7 @@ export function Barracks({
                                   12,
 
                                 overflow:
-                                  'hidden',
+                                  'visible',
 
                                 position:
                                   'relative',
@@ -754,16 +765,7 @@ export function Barracks({
                                   `${info.color}12`,
                               }}
                             >
-                              <img
-                                src={
-                                  src
-                                }
-                                alt={`${info.name} Lv.${orion.level}`}
-                                loading="lazy"
-                                onError={(event) => {
-                                  event.currentTarget.style.display =
-                                    'none';
-                                }}
+                              <div
                                 style={{
                                   width:
                                     '100%',
@@ -771,15 +773,54 @@ export function Barracks({
                                   height:
                                     '100%',
 
-                                  objectFit:
-                                    'contain',
+                                  borderRadius:
+                                    12,
 
-                                  imageRendering:
-                                    'pixelated',
+                                  overflow:
+                                    'hidden',
 
-                                  display:
-                                    'block',
+                                  position:
+                                    'relative',
                                 }}
+                              >
+                                <img
+                                  src={
+                                    src
+                                  }
+                                  alt={`${info.name} Lv.${orion.level}`}
+                                  loading="lazy"
+                                  onError={(
+                                    event
+                                  ) => {
+                                    event.currentTarget.style.display =
+                                      'none';
+                                  }}
+                                  style={{
+                                    width:
+                                      '100%',
+
+                                    height:
+                                      '100%',
+
+                                    objectFit:
+                                      'contain',
+
+                                    imageRendering:
+                                      'pixelated',
+
+                                    display:
+                                      'block',
+                                  }}
+                                />
+                              </div>
+
+                              <OrionStatsBadge
+                                race={
+                                  orion.race
+                                }
+                                level={
+                                  orion.level
+                                }
                               />
                             </div>
 
@@ -824,7 +865,9 @@ export function Barracks({
                   </div>
                 )}
 
-                {/* MERGE */}
+                {/* ==================================================
+                    MERGE
+                =================================================== */}
 
                 <div
                   style={{
@@ -992,9 +1035,7 @@ export function Barracks({
                                     : '#111',
                               }}
                             >
-                              {cnt}x
-                              {' '}
-                              Lv.
+                              {cnt}x Lv.
                               {lvl}
                               {' → '}
                               Lv.

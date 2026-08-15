@@ -1,0 +1,36 @@
+Folder PATH listing
+Volume serial number is 000000AA A670:0C75
+C:\USERS\JAVAD1999\DESKTOP\LAND-ORION\SRC\GAME
+³   BuildingBase.tsx
+³   BuyGemsPanel.tsx
+³   eggCatalog.ts
+³   EggShop.tsx
+³   GameWorld.tsx
+³   incubatorStore.ts
+³   InventoryPanel.tsx
+³   LevelBadge.tsx
+³   orion-background.css
+³   OrionBackground.tsx
+³   OrionCharacter.tsx
+³   OrionHouse.tsx
+³   OrionHouseInterior.tsx
+³   OrionTokenIcon.tsx
+³   PlacementGrid.tsx
+³   placementGridUtil.ts
+³   PlayerIsland.tsx
+³   QuestButton.tsx
+³   QuestPanel.tsx
+³   ResourceDisplay.tsx
+³   seedCatalog.ts
+³   SeedNest.tsx
+³   useGameStore.ts
+³   VipPanel.tsx
+³   
+ÀÄÄÄbuildings
+        Barracks.tsx
+        BuildingBase.tsx
+        Incubator.tsx
+        Kitchen.tsx
+        OrionSupply.tsx
+        Tree.tsx
+        

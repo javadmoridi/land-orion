@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+
 import { GRID_SIZE } from './placementGridUtil';
 import { useResourceStore } from '../economy/resourceStore';
 
@@ -62,70 +63,102 @@ const MINER_IMAGE =
 
 const MINER_MAX_LEVEL = 100;
 
-// One complete mining cycle = exactly 3 hours.
-const MINER_CYCLE_MS =
-  3 * 60 * 60 * 1000;
-
-// Upgrade multiplier.
-const MINER_UPGRADE_MULTIPLIER = 1.2;
-
 const MINER_STORAGE_KEY =
-  'land-orion-miner';
+  'land-orion-miner-state';
 
 interface MinerSaveData {
-  unlockedLevel: number;
-  lastCollectedAt: number | null;
+  level: number;
+  lastCollectedAt: number;
+  fractionalWater: number;
+  fractionalAir: number;
+  fractionalEarth: number;
+  fractionalFire: number;
 }
 
-const DEFAULT_MINER_DATA: MinerSaveData = {
-  unlockedLevel: 0,
-  lastCollectedAt: null,
-};
+function createDefaultMinerData(): MinerSaveData {
+  return {
+    level: 1,
+    lastCollectedAt: Date.now(),
+    fractionalWater: 0,
+    fractionalAir: 0,
+    fractionalEarth: 0,
+    fractionalFire: 0,
+  };
+}
 
 function loadMinerData(): MinerSaveData {
-  if (typeof window === 'undefined') {
-    return DEFAULT_MINER_DATA;
+  if (
+    typeof window === 'undefined'
+  ) {
+    return createDefaultMinerData();
+  }
+
+  const raw =
+    window.localStorage.getItem(
+      MINER_STORAGE_KEY
+    );
+
+  if (!raw) {
+    return createDefaultMinerData();
   }
 
   try {
-    const raw =
-      window.localStorage.getItem(
-        MINER_STORAGE_KEY
-      );
-
-    if (!raw) {
-      return DEFAULT_MINER_DATA;
-    }
-
     const parsed =
       JSON.parse(raw) as Partial<MinerSaveData>;
 
+    const level = Math.max(
+      1,
+      Math.min(
+        MINER_MAX_LEVEL,
+        Math.floor(
+          Number(parsed.level) || 1
+        )
+      )
+    );
+
     return {
-      unlockedLevel:
-        typeof parsed.unlockedLevel === 'number'
-          ? Math.max(
-              0,
-              Math.min(
-                MINER_MAX_LEVEL,
-                Math.floor(parsed.unlockedLevel)
-              )
-            )
+      level,
+      lastCollectedAt:
+        typeof parsed.lastCollectedAt ===
+          'number'
+          ? parsed.lastCollectedAt
+          : Date.now(),
+
+      fractionalWater:
+        typeof parsed.fractionalWater ===
+          'number'
+          ? parsed.fractionalWater
           : 0,
 
-      lastCollectedAt:
-        typeof parsed.lastCollectedAt === 'number'
-          ? parsed.lastCollectedAt
-          : null,
+      fractionalAir:
+        typeof parsed.fractionalAir ===
+          'number'
+          ? parsed.fractionalAir
+          : 0,
+
+      fractionalEarth:
+        typeof parsed.fractionalEarth ===
+          'number'
+          ? parsed.fractionalEarth
+          : 0,
+
+      fractionalFire:
+        typeof parsed.fractionalFire ===
+          'number'
+          ? parsed.fractionalFire
+          : 0,
     };
   } catch {
-    return DEFAULT_MINER_DATA;
+    return createDefaultMinerData();
   }
 }
 
 function saveMinerData(
   data: MinerSaveData
 ): void {
-  if (typeof window === 'undefined') {
+  if (
+    typeof window === 'undefined'
+  ) {
     return;
   }
 
@@ -135,28 +168,124 @@ function saveMinerData(
   );
 }
 
-/**
- * Upgrade cost:
- *
- * Level 1 = 1
- * Level 2 = 1.2
- * Level 3 = 1.44
- * Level 4 = 1.728
- *
- * Formula:
- * 1.2^(level - 1)
- */
-function minerLevelCost(
-  level: number
+// Cost to upgrade to the next level.
+function minerUpgradeCost(
+  currentLevel: number
 ): number {
-  if (level <= 0) {
+  if (currentLevel <= 0) {
     return 0;
   }
 
-  return Math.pow(
-    MINER_UPGRADE_MULTIPLIER,
-    level - 1
+  if (
+    currentLevel >=
+    MINER_MAX_LEVEL
+  ) {
+    return Infinity;
+  }
+
+  return Math.floor(
+    100 *
+      Math.pow(
+        1.15,
+        currentLevel - 1
+      )
   );
+}
+
+// Level L = L of each element per hour.
+function minerRate(
+  level: number
+): number {
+  return Math.max(
+    0,
+    Math.min(
+      MINER_MAX_LEVEL,
+      Math.floor(level)
+    )
+  );
+}
+
+interface MinerYield {
+  water: number;
+  air: number;
+  earth: number;
+  fire: number;
+
+  newFracWater: number;
+  newFracAir: number;
+  newFracEarth: number;
+  newFracFire: number;
+
+  elapsedMs: number;
+}
+
+function calcMinerYield(
+  level: number,
+  lastCollectedAt: number,
+  fractionalWater: number,
+  fractionalAir: number,
+  fractionalEarth: number,
+  fractionalFire: number,
+  now: number
+): MinerYield {
+  const elapsedMs = Math.max(
+    0,
+    now - lastCollectedAt
+  );
+
+  const elapsedHours =
+    elapsedMs / 3600000;
+
+  const rate = minerRate(level);
+
+  const totalWater =
+    fractionalWater +
+    rate * elapsedHours;
+
+  const totalAir =
+    fractionalAir +
+    rate * elapsedHours;
+
+  const totalEarth =
+    fractionalEarth +
+    rate * elapsedHours;
+
+  const totalFire =
+    fractionalFire +
+    rate * elapsedHours;
+
+  const water =
+    Math.floor(totalWater);
+
+  const air =
+    Math.floor(totalAir);
+
+  const earth =
+    Math.floor(totalEarth);
+
+  const fire =
+    Math.floor(totalFire);
+
+  return {
+    water,
+    air,
+    earth,
+    fire,
+
+    newFracWater:
+      totalWater - water,
+
+    newFracAir:
+      totalAir - air,
+
+    newFracEarth:
+      totalEarth - earth,
+
+    newFracFire:
+      totalFire - fire,
+
+    elapsedMs,
+  };
 }
 
 function formatNumber(
@@ -173,25 +302,32 @@ function formatNumber(
 function formatClock(
   ms: number
 ): string {
-  const totalSeconds = Math.max(
-    0,
-    Math.ceil(ms / 1000)
-  );
+  const totalSeconds =
+    Math.max(
+      0,
+      Math.ceil(ms / 1000)
+    );
 
-  const hours = Math.floor(
-    totalSeconds / 3600
-  );
+  const hours =
+    Math.floor(
+      totalSeconds / 3600
+    );
 
-  const minutes = Math.floor(
-    (totalSeconds % 3600) / 60
-  );
+  const minutes =
+    Math.floor(
+      (totalSeconds % 3600) / 60
+    );
 
   const seconds =
     totalSeconds % 60;
 
-  return `${String(hours).padStart(2, '0')}:${String(
-    minutes
-  ).padStart(2, '0')}:${String(seconds).padStart(
+  return `${String(hours).padStart(
+    2,
+    '0'
+  )}:${String(minutes).padStart(
+    2,
+    '0'
+  )}:${String(seconds).padStart(
     2,
     '0'
   )}`;
@@ -214,52 +350,46 @@ export function Miner({
   const [upgradeOpen, setUpgradeOpen] =
     useState(false);
 
+  const [message, setMessage] =
+    useState<string | null>(null);
+
+  const [now, setNow] =
+    useState(() => Date.now());
+
   const [minerData, setMinerData] =
     useState<MinerSaveData>(
       loadMinerData
     );
 
-  const [now, setNow] =
-    useState(() => Date.now());
+  const coins = useResourceStore(
+    (state) => state.resources.coins
+  );
 
-  const [message, setMessage] =
-    useState<string | null>(null);
+  const spendCoins = useResourceStore(
+    (state) => state.spendCoins
+  );
 
-  const tokens =
-    useResourceStore(
-      (s) => s.resources.tokens
-    );
+  const addWater = useResourceStore(
+    (state) => state.addWater
+  );
 
-  const spendTokens =
-    useResourceStore(
-      (s) => s.spendTokens
-    );
+  const addAir = useResourceStore(
+    (state) => state.addAir
+  );
 
-  const addWater =
-    useResourceStore(
-      (s) => s.addWater
-    );
+  const addEarth = useResourceStore(
+    (state) => state.addEarth
+  );
 
-  const addAir =
-    useResourceStore(
-      (s) => s.addAir
-    );
-
-  const addEarth =
-    useResourceStore(
-      (s) => s.addEarth
-    );
-
-  const addFire =
-    useResourceStore(
-      (s) => s.addFire
-    );
-
-  // --------------------------------------------------------------------------
-  // Real clock: updates every second.
-  // --------------------------------------------------------------------------
+  const addFire = useResourceStore(
+    (state) => state.addFire
+  );
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
+
     const timer =
       window.setInterval(() => {
         setNow(Date.now());
@@ -267,122 +397,155 @@ export function Miner({
 
     return () =>
       window.clearInterval(timer);
-  }, []);
+  }, [open]);
 
-  // --------------------------------------------------------------------------
-  // Save miner data.
-  // --------------------------------------------------------------------------
-
-  useEffect(() => {
-    saveMinerData(minerData);
-  }, [minerData]);
-
-  // --------------------------------------------------------------------------
-  // Repair old miner save data.
-  //
-  // If the player already has a miner level but old data does not contain
-  // lastCollectedAt, start a new 3-hour mining cycle now.
-  // --------------------------------------------------------------------------
-
-  useEffect(() => {
-    if (
-      minerData.unlockedLevel > 0 &&
-      minerData.lastCollectedAt === null
-    ) {
-      const timestamp = Date.now();
-
-      setMinerData((current) => ({
-        ...current,
-        lastCollectedAt: timestamp,
-      }));
-
-      setNow(timestamp);
-    }
-  }, [
-    minerData.unlockedLevel,
-    minerData.lastCollectedAt,
-  ]);
-
-  const activeLevel =
-    minerData.unlockedLevel;
-
-  const hasStarted =
-    activeLevel > 0 &&
-    minerData.lastCollectedAt !== null;
-
-  const elapsedMs =
-    hasStarted
-      ? Math.max(
-          0,
-          now -
-            (minerData.lastCollectedAt ?? now)
-        )
-      : 0;
-
-  const cappedElapsedMs =
-    Math.min(
-      elapsedMs,
-      MINER_CYCLE_MS
+  const yieldData =
+    calcMinerYield(
+      minerData.level,
+      minerData.lastCollectedAt,
+      minerData.fractionalWater,
+      minerData.fractionalAir,
+      minerData.fractionalEarth,
+      minerData.fractionalFire,
+      now
     );
 
+  const activeLevel =
+    minerData.level;
+
+  const rate =
+    minerRate(activeLevel);
+
+  const upgradeCost =
+    minerUpgradeCost(activeLevel);
+
+  const nextLevel =
+    Math.min(
+      MINER_MAX_LEVEL,
+      activeLevel + 1
+    );
+
+  const canUpgrade =
+    activeLevel <
+    MINER_MAX_LEVEL;
+
   const productionReady =
-    activeLevel > 0 &&
-    minerData.lastCollectedAt !== null &&
-    elapsedMs >= MINER_CYCLE_MS;
-
-  const remainingMs =
-    hasStarted
-      ? Math.max(
-          0,
-          MINER_CYCLE_MS - elapsedMs
-        )
-      : MINER_CYCLE_MS;
-
-  // --------------------------------------------------------------------------
-  // LIVE PRODUCTION
-  //
-  // Level 1:
-  //   1 hour = 1
-  //   2 hours = 2
-  //   3 hours = 3
-  //
-  // Level 100:
-  //   1 hour = 100
-  //   2 hours = 200
-  //   3 hours = 300
-  //
-  // The exact same amount is displayed for all 4 elemental resources.
-  // --------------------------------------------------------------------------
-
-  const liveAmount =
-    activeLevel > 0
-      ? Math.min(
-          activeLevel * 3,
-          (activeLevel *
-            cappedElapsedMs) /
-            (60 * 60 * 1000)
-        )
-      : 0;
+    yieldData.water > 0 ||
+    yieldData.air > 0 ||
+    yieldData.earth > 0 ||
+    yieldData.fire > 0;
 
   const displayAmount =
-    Number(
-      liveAmount.toFixed(2)
+    Math.max(
+      yieldData.water,
+      yieldData.air,
+      yieldData.earth,
+      yieldData.fire
     );
 
   const cycleReward =
-    activeLevel * 3;
+    rate;
 
-  const nextLevel =
-    activeLevel + 1;
-
-  const canUpgrade =
-    nextLevel <=
-    MINER_MAX_LEVEL;
-
-  const upgradeCost =
-    canUpgrade
-      ? minerLevelCost(nextLevel)
+  const remainingToNextUnit =
+    rate > 0
+      ? Math.max(
+          0,
+          (
+            1 -
+            Math.min(
+              0.999999,
+              minerData.fractionalWater
+            )
+          ) /
+            rate *
+            3600000
+        )
       : 0;
+
+  const remainingMs =
+    productionReady
+      ? 0
+      : remainingToNextUnit;
+
+  function collectMiner() {
+    const collected =
+      calcMinerYield(
+        minerData.level,
+        minerData.lastCollectedAt,
+        minerData.fractionalWater,
+        minerData.fractionalAir,
+        minerData.fractionalEarth,
+        minerData.fractionalFire,
+        Date.now()
+      );
+
+    if (
+      collected.water <= 0 &&
+      collected.air <= 0 &&
+      collected.earth <= 0 &&
+      collected.fire <= 0
+    ) {
+      setMessage(
+        'No resources are ready to collect yet.'
+      );
+      return;
+    }
+
+    const collectedAt =
+      Date.now();
+
+    const nextData:
+      MinerSaveData = {
+        ...minerData,
+
+        lastCollectedAt:
+          collectedAt,
+
+        fractionalWater:
+          collected.newFracWater,
+
+        fractionalAir:
+          collected.newFracAir,
+
+        fractionalEarth:
+          collected.newFracEarth,
+
+        fractionalFire:
+          collected.newFracFire,
+      };
+
+    if (collected.water > 0) {
+      addWater(collected.water);
+    }
+
+    if (collected.air > 0) {
+      addAir(collected.air);
+    }
+
+    if (collected.earth > 0) {
+      addEarth(collected.earth);
+    }
+
+    if (collected.fire > 0) {
+      addFire(collected.fire);
+    }
+
+    setMinerData(nextData);
+    saveMinerData(nextData);
+    setNow(collectedAt);
+
+    setMessage(
+      `Collected ${formatNumber(
+        collected.water
+      )} Water, ${formatNumber(
+        collected.air
+      )} Air, ${formatNumber(
+        collected.earth
+      )} Earth and ${formatNumber(
+        collected.fire
+      )} Fire.`
+    );
+  }
 
   function openMiner() {
     setMessage(null);
@@ -392,50 +555,10 @@ export function Miner({
     onClick?.();
   }
 
-  function collectMiner() {
-    if (
-      activeLevel <= 0 ||
-      minerData.lastCollectedAt === null
-    ) {
-      setMessage(
-        'Unlock Miner Level 1 first.'
-      );
-      return;
-    }
-
-    if (!productionReady) {
-      setMessage(
-        `Miner is still producing. ${formatClock(
-          remainingMs
-        )} remaining.`
-      );
-      return;
-    }
-
-    const amount =
-      activeLevel * 3;
-
-    addWater(amount);
-    addAir(amount);
-    addEarth(amount);
-    addFire(amount);
-
-    const timestamp =
-      Date.now();
-
-    setMinerData(
-      (current) => ({
-        ...current,
-        lastCollectedAt:
-          timestamp,
-      })
-    );
-
-    setNow(timestamp);
-
-    setMessage(
-      `Collected ${amount} Water, ${amount} Air, ${amount} Earth and ${amount} Fire.`
-    );
+  function closeMiner() {
+    setOpen(false);
+    setUpgradeOpen(false);
+    setMessage(null);
   }
 
   function upgradeMiner() {
@@ -447,10 +570,11 @@ export function Miner({
     }
 
     if (
-      tokens < upgradeCost
+      coins <
+      upgradeCost
     ) {
       setMessage(
-        `Not enough game currency. Required: ${formatNumber(
+        `Not enough coins. Required: ${formatNumber(
           upgradeCost
         )}.`
       );
@@ -458,27 +582,39 @@ export function Miner({
     }
 
     const spent =
-      spendTokens(
-        upgradeCost
-      );
+      spendCoins(upgradeCost);
 
     if (!spent) {
       setMessage(
-        'Not enough game currency.'
+        'Not enough coins.'
       );
       return;
     }
 
-    setMinerData(
-      (current) => ({
-        ...current,
-        unlockedLevel:
+    const upgradedAt =
+      Date.now();
+
+    const nextData:
+      MinerSaveData = {
+        ...minerData,
+
+        level:
           nextLevel,
-      })
-    );
+
+        lastCollectedAt:
+          upgradedAt,
+
+        fractionalWater: 0,
+        fractionalAir: 0,
+        fractionalEarth: 0,
+        fractionalFire: 0,
+      };
+
+    setMinerData(nextData);
+    saveMinerData(nextData);
 
     setUpgradeOpen(false);
-    setNow(Date.now());
+    setNow(upgradedAt);
 
     setMessage(
       `Miner upgraded to Level ${nextLevel}.`
@@ -498,10 +634,7 @@ export function Miner({
 
       {open && (
         <div
-          onClick={() => {
-            setOpen(false);
-            setUpgradeOpen(false);
-          }}
+          onClick={closeMiner}
           style={{
             position: 'fixed',
             inset: 0,
@@ -513,6 +646,7 @@ export function Miner({
             justifyContent:
               'center',
             padding: 20,
+            overflowY: 'auto',
           }}
         >
           <div
@@ -522,6 +656,8 @@ export function Miner({
             style={{
               width:
                 'min(820px, 94vw)',
+              maxHeight: '94vh',
+              overflowY: 'auto',
               background:
                 'linear-gradient(180deg, #111827, #05070c)',
               border:
@@ -530,10 +666,9 @@ export function Miner({
               boxShadow:
                 '0 0 50px rgba(0,0,0,.65)',
               color: '#fff',
-              overflow: 'hidden',
+              overflowX: 'hidden',
             }}
           >
-            {/* HEADER */}
             <div
               style={{
                 position: 'relative',
@@ -565,13 +700,10 @@ export function Miner({
                 Miner Level {activeLevel}
               </div>
 
-              {/* UPGRADE BUTTON */}
               <button
                 type="button"
                 onClick={() => {
-                  setUpgradeOpen(
-                    true
-                  );
+                  setUpgradeOpen(true);
                   setMessage(null);
                 }}
                 disabled={
@@ -586,8 +718,7 @@ export function Miner({
                   width: 50,
                   height: 50,
                   border: 'none',
-                  borderRadius:
-                    12,
+                  borderRadius: 12,
                   background:
                     canUpgrade
                       ? '#22c55e'
@@ -636,13 +767,11 @@ export function Miner({
               </div>
             )}
 
-            {/* FOUR RESOURCE BOXES */}
             <div
               style={{
                 padding:
                   '22px 28px 12px',
-                display:
-                  'grid',
+                display: 'grid',
                 gridTemplateColumns:
                   'repeat(2, minmax(0, 1fr))',
                 gap: 18,
@@ -651,8 +780,12 @@ export function Miner({
               <ElementBox
                 label="Water"
                 icon="💧"
-                amount={displayAmount}
-                capacity={cycleReward}
+                amount={
+                  yieldData.water
+                }
+                capacity={
+                  cycleReward
+                }
                 border="rgba(96,165,250,.35)"
                 background="linear-gradient(145deg, rgba(37,99,235,.16), rgba(10,15,30,.82))"
               />
@@ -660,8 +793,12 @@ export function Miner({
               <ElementBox
                 label="Air"
                 icon="🌪"
-                amount={displayAmount}
-                capacity={cycleReward}
+                amount={
+                  yieldData.air
+                }
+                capacity={
+                  cycleReward
+                }
                 border="rgba(125,211,252,.35)"
                 background="linear-gradient(145deg, rgba(14,116,144,.16), rgba(10,15,30,.82))"
               />
@@ -669,8 +806,12 @@ export function Miner({
               <ElementBox
                 label="Earth"
                 icon="🪨"
-                amount={displayAmount}
-                capacity={cycleReward}
+                amount={
+                  yieldData.earth
+                }
+                capacity={
+                  cycleReward
+                }
                 border="rgba(132,204,22,.35)"
                 background="linear-gradient(145deg, rgba(63,98,18,.18), rgba(10,15,30,.82))"
               />
@@ -678,14 +819,17 @@ export function Miner({
               <ElementBox
                 label="Fire"
                 icon="🔥"
-                amount={displayAmount}
-                capacity={cycleReward}
+                amount={
+                  yieldData.fire
+                }
+                capacity={
+                  cycleReward
+                }
                 border="rgba(248,113,113,.35)"
                 background="linear-gradient(145deg, rgba(153,27,27,.18), rgba(10,15,30,.82))"
               />
             </div>
 
-            {/* LIVE STATUS */}
             <div
               style={{
                 margin:
@@ -701,15 +845,12 @@ export function Miner({
             >
               <div
                 style={{
-                  display:
-                    'flex',
+                  display: 'flex',
                   justifyContent:
                     'space-between',
-                  alignItems:
-                    'center',
+                  alignItems: 'center',
                   gap: 12,
-                  flexWrap:
-                    'wrap',
+                  flexWrap: 'wrap',
                 }}
               >
                 <div>
@@ -730,14 +871,15 @@ export function Miner({
                         '0.78rem',
                     }}
                   >
-                    Every 3 hours: {cycleReward} of each element
+                    Production: {rate}{' '}
+                    of each element
+                    per hour
                   </div>
                 </div>
 
                 <div
                   style={{
-                    textAlign:
-                      'right',
+                    textAlign: 'right',
                   }}
                 >
                   <div
@@ -746,8 +888,7 @@ export function Miner({
                         productionReady
                           ? '#86efac'
                           : '#fbbf24',
-                      fontWeight:
-                        900,
+                      fontWeight: 900,
                       fontSize:
                         '0.82rem',
                     }}
@@ -767,8 +908,8 @@ export function Miner({
                     }}
                   >
                     {productionReady
-                      ? '00:00:00'
-                      : `Time remaining: ${formatClock(
+                      ? 'Resources available'
+                      : `Next resource: ${formatClock(
                           remainingMs
                         )}`}
                   </div>
@@ -776,13 +917,11 @@ export function Miner({
               </div>
             </div>
 
-            {/* COLLECT */}
             <div
               style={{
                 padding:
                   '0 28px 22px',
-                display:
-                  'flex',
+                display: 'flex',
                 justifyContent:
                   'center',
               }}
@@ -799,8 +938,7 @@ export function Miner({
                   width:
                     'min(420px, 100%)',
                   border: 'none',
-                  borderRadius:
-                    12,
+                  borderRadius: 12,
                   padding:
                     '13px 20px',
                   background:
@@ -815,8 +953,7 @@ export function Miner({
                     productionReady
                       ? 'pointer'
                       : 'not-allowed',
-                  fontWeight:
-                    1000,
+                  fontWeight: 1000,
                   fontSize:
                     '0.95rem',
                 }}
@@ -825,25 +962,19 @@ export function Miner({
               </button>
             </div>
 
-            {/* UPGRADE WINDOW */}
             {upgradeOpen && (
               <div
                 onClick={() =>
-                  setUpgradeOpen(
-                    false
-                  )
+                  setUpgradeOpen(false)
                 }
                 style={{
-                  position:
-                    'fixed',
+                  position: 'fixed',
                   inset: 0,
                   zIndex: 10001,
                   background:
                     'rgba(0,0,0,.7)',
-                  display:
-                    'flex',
-                  alignItems:
-                    'center',
+                  display: 'flex',
+                  alignItems: 'center',
                   justifyContent:
                     'center',
                   padding: 20,
@@ -860,8 +991,7 @@ export function Miner({
                       '#111827',
                     border:
                       '1px solid rgba(34,197,94,.3)',
-                    borderRadius:
-                      16,
+                    borderRadius: 16,
                     boxShadow:
                       '0 0 40px rgba(0,0,0,.7)',
                     padding: 22,
@@ -870,22 +1000,18 @@ export function Miner({
                 >
                   <div
                     style={{
-                      display:
-                        'flex',
+                      display: 'flex',
                       justifyContent:
                         'space-between',
-                      alignItems:
-                        'center',
-                      marginBottom:
-                        18,
+                      alignItems: 'center',
+                      marginBottom: 18,
                     }}
                   >
                     <div
                       style={{
                         fontSize:
                           '1.1rem',
-                        fontWeight:
-                          1000,
+                        fontWeight: 1000,
                       }}
                     >
                       UPGRADE MINER
@@ -894,21 +1020,17 @@ export function Miner({
                     <button
                       type="button"
                       onClick={() =>
-                        setUpgradeOpen(
-                          false
-                        )
+                        setUpgradeOpen(false)
                       }
                       style={{
                         border: 'none',
                         background:
                           'rgba(255,255,255,.08)',
                         color: '#fff',
-                        borderRadius:
-                          8,
+                        borderRadius: 8,
                         padding:
                           '6px 10px',
-                        cursor:
-                          'pointer',
+                        cursor: 'pointer',
                       }}
                     >
                       X
@@ -917,8 +1039,7 @@ export function Miner({
 
                   <div
                     style={{
-                      display:
-                        'grid',
+                      display: 'grid',
                       gap: 12,
                     }}
                   >
@@ -926,8 +1047,7 @@ export function Miner({
                       style={{
                         padding:
                           '12px 14px',
-                        borderRadius:
-                          10,
+                        borderRadius: 10,
                         background:
                           'rgba(255,255,255,.04)',
                       }}
@@ -945,12 +1065,10 @@ export function Miner({
 
                       <div
                         style={{
-                          marginTop:
-                            4,
+                          marginTop: 4,
                           fontSize:
                             '1.1rem',
-                          fontWeight:
-                            900,
+                          fontWeight: 900,
                         }}
                       >
                         {activeLevel}
@@ -961,8 +1079,7 @@ export function Miner({
                       style={{
                         padding:
                           '12px 14px',
-                        borderRadius:
-                          10,
+                        borderRadius: 10,
                         background:
                           'rgba(255,255,255,.04)',
                       }}
@@ -980,12 +1097,10 @@ export function Miner({
 
                       <div
                         style={{
-                          marginTop:
-                            4,
+                          marginTop: 4,
                           fontSize:
                             '1.1rem',
-                          fontWeight:
-                            900,
+                          fontWeight: 900,
                         }}
                       >
                         {canUpgrade
@@ -996,10 +1111,8 @@ export function Miner({
 
                     <div
                       style={{
-                        padding:
-                          '14px',
-                        borderRadius:
-                          10,
+                        padding: 14,
+                        borderRadius: 10,
                         border:
                           '1px solid rgba(255,215,0,.25)',
                         background:
@@ -1019,14 +1132,12 @@ export function Miner({
 
                       <div
                         style={{
-                          marginTop:
-                            6,
+                          marginTop: 6,
                           color:
                             '#ffd700',
                           fontSize:
                             '1.25rem',
-                          fontWeight:
-                            1000,
+                          fontWeight: 1000,
                         }}
                       >
                         {canUpgrade
@@ -1034,6 +1145,21 @@ export function Miner({
                               upgradeCost
                             )
                           : 'MAX'}
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: 5,
+                          color:
+                            '#9ca3af',
+                          fontSize:
+                            '0.75rem',
+                        }}
+                      >
+                        Your coins:{' '}
+                        {formatNumber(
+                          coins
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1045,39 +1171,35 @@ export function Miner({
                     }
                     disabled={
                       !canUpgrade ||
-                      tokens <
+                      coins <
                         upgradeCost
                     }
                     style={{
-                      width:
-                        '100%',
-                      marginTop:
-                        18,
+                      width: '100%',
+                      marginTop: 18,
                       border: 'none',
-                      borderRadius:
-                        11,
+                      borderRadius: 11,
                       padding:
                         '12px 16px',
                       background:
                         canUpgrade &&
-                        tokens >=
+                        coins >=
                           upgradeCost
                           ? '#22c55e'
                           : 'rgba(255,255,255,.08)',
                       color:
                         canUpgrade &&
-                        tokens >=
+                        coins >=
                           upgradeCost
                           ? '#04130a'
                           : '#777',
                       cursor:
                         canUpgrade &&
-                        tokens >=
+                        coins >=
                           upgradeCost
                           ? 'pointer'
                           : 'not-allowed',
-                      fontWeight:
-                        1000,
+                      fontWeight: 1000,
                     }}
                   >
                     UPGRADE
@@ -1153,7 +1275,7 @@ function ElementBox({
           fontSize: '0.75rem',
         }}
       >
-        Stored
+        Stored / Hour
       </div>
     </div>
   );
@@ -1196,11 +1318,155 @@ interface BattleButtonProps {
   onClick?: () => void;
 }
 
+function BattlePage({
+  onClose,
+}: {
+  onClose: () => void;
+}) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 999999,
+        backgroundImage:
+          "linear-gradient(rgba(4,7,16,.18), rgba(4,7,16,.4)), url('/assets/battle-menu-bg.png')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+      }}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        style={{
+          position: 'absolute',
+          top: 20,
+          right: 20,
+          width: 48,
+          height: 48,
+          border:
+            '1px solid rgba(255,255,255,.28)',
+          borderRadius: 12,
+          background:
+            'rgba(0,0,0,.65)',
+          color: '#fff',
+          cursor: 'pointer',
+          fontSize: 20,
+          fontWeight: 900,
+          zIndex: 5,
+        }}
+      >
+        X
+      </button>
+
+      <div
+        style={{
+          width:
+            'min(430px, 86vw)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 18,
+        }}
+      >
+        <div
+          style={{
+            textAlign: 'center',
+            marginBottom: 10,
+          }}
+        >
+          <div
+            style={{
+              fontSize:
+                'clamp(2rem, 6vw, 3.5rem)',
+              fontWeight: 1000,
+              letterSpacing: '.14em',
+              color: '#ffd700',
+              textShadow:
+                '0 4px 20px rgba(0,0,0,.9)',
+            }}
+          >
+            BATTLE
+          </div>
+
+          <div
+            style={{
+              marginTop: 8,
+              color:
+                'rgba(255,255,255,.82)',
+              fontSize: '.78rem',
+              letterSpacing: '.12em',
+            }}
+          >
+            CHOOSE YOUR BATTLE
+          </div>
+        </div>
+
+        <BattleMenuButton
+          title="BATTLE VS BOT"
+          onClick={() => {
+            console.log(
+              'BATTLE VS BOT'
+            );
+          }}
+        />
+
+        <BattleMenuButton
+          title="ONLINE BATTLE"
+          onClick={() => {
+            console.log(
+              'ONLINE BATTLE'
+            );
+          }}
+        />
+
+        <BattleMenuButton
+          title="CLAN BATTLE"
+          onClick={() => {
+            console.log(
+              'CLAN BATTLE'
+            );
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function BattleButton({
   x,
   y,
   onClick,
 }: BattleButtonProps) {
+  const [open, setOpen] =
+    useState(false);
+
+  function openBattle() {
+    setOpen(true);
+    onClick?.();
+  }
+
+  function closeBattle() {
+    setOpen(false);
+  }
+
+  if (open) {
+    return (
+      <BattlePage
+        onClose={
+          closeBattle
+        }
+      />
+    );
+  }
+
   return (
     <ActionBuilding
       x={x}
@@ -1208,7 +1474,71 @@ export function BattleButton({
       image="/assets/orion-battle-button.png"
       alt="Battle"
       size={7}
-      onClick={onClick}
+      onClick={
+        openBattle
+      }
     />
+  );
+}
+
+// ============================================================================
+// BATTLE MENU BUTTON
+// ============================================================================
+
+interface BattleMenuButtonProps {
+  title: string;
+  onClick: () => void;
+}
+
+function BattleMenuButton({
+  title,
+  onClick,
+}: BattleMenuButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        width: '100%',
+        minHeight: 78,
+        padding: '18px 20px',
+        border:
+          '2px solid rgba(255,215,0,.48)',
+        borderRadius: 14,
+        background:
+          'rgba(0,0,0,.7)',
+        color: '#ffd700',
+        fontSize: '1.05rem',
+        fontWeight: 900,
+        letterSpacing: '.06em',
+        cursor: 'pointer',
+        boxShadow:
+          '0 8px 25px rgba(0,0,0,.45)',
+        backdropFilter:
+          'blur(6px)',
+        transition:
+          'transform .15s ease, border-color .15s ease',
+      }}
+      onMouseEnter={(
+        event
+      ) => {
+        event.currentTarget.style.borderColor =
+          'rgba(255,215,0,.9)';
+
+        event.currentTarget.style.transform =
+          'scale(1.02)';
+      }}
+      onMouseLeave={(
+        event
+      ) => {
+        event.currentTarget.style.borderColor =
+          'rgba(255,215,0,.48)';
+
+        event.currentTarget.style.transform =
+          'scale(1)';
+      }}
+    >
+      {title}
+    </button>
   );
 }
