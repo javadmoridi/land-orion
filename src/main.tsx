@@ -12,7 +12,9 @@ ReactDOM.createRoot(
   document.getElementById('root')!
 ).render(
   <React.StrictMode>
-    <TonConnectUIProvider manifestUrl="/tonconnect-manifest.json">
+    <TonConnectUIProvider
+      manifestUrl="https://land-orion-mu.vercel.app/tonconnect-manifest.json"
+    >
       <App />
     </TonConnectUIProvider>
   </React.StrictMode>

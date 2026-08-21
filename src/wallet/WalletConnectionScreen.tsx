@@ -1,11 +1,23 @@
-import { useEffect, useState } from 'react';
-import { TonConnectButton, useTonAddress, useTonWallet, useIsConnectionRestored, useTonConnectUI } from '@tonconnect/ui-react';
+import { useEffect, useRef, useState } from 'react';
+
+import {
+  TonConnectButton,
+  useTonAddress,
+  useTonWallet,
+  useIsConnectionRestored,
+} from '@tonconnect/ui-react';
+
 import { useGameStore } from '../game/useGameStore';
-import { createWalletSession, formatWalletAddress } from './walletService';
+
+import {
+  createWalletSession,
+  formatWalletAddress,
+} from './walletService';
 
 import { useGemStore } from '../economy/gemStore';
 import { useResourceStore } from '../economy/resourceStore';
 import { useVipStore } from '../economy/vipStore';
+
 import {
   claimLoginRewards,
   getReferralCodeFromUrl,
@@ -30,76 +42,181 @@ declare global {
   }
 }
 
-// Replace this file to change the wallet screen background:
-// public/assets/wallet-background.jpg
-export const WALLET_BACKGROUND = '/assets/wallet-background.jpg';
+export const WALLET_BACKGROUND =
+  '/assets/wallet-background.jpg';
+
+const TON_MANIFEST_URL =
+  'https://land-orion-mu.vercel.app/tonconnect-manifest.json';
 
 export function WalletConnectionScreen() {
-  const userFriendlyAddress = useTonAddress();
-  const rawAddress = useTonAddress(false);
-  const wallet = useTonWallet();
-  const connectionRestored = useIsConnectionRestored();
-  const [tonConnectUI] = useTonConnectUI();
+  const userFriendlyAddress =
+    useTonAddress(true);
 
-  const { connectWallet, wallet: session, connectionStatus, error } = useGameStore();
+  const rawAddress =
+    useTonAddress(false);
 
-  const [referralCode, setReferralCode] = useState(
-    () => getReferralCodeFromUrl()
-  );
+  const wallet =
+    useTonWallet();
 
-  const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
+  const connectionRestored =
+    useIsConnectionRestored();
 
-  // Telegram Mini App support: notify Telegram that the web app is ready and expand.
+  const {
+    connectWallet,
+    wallet: session,
+    connectionStatus,
+    error,
+  } = useGameStore();
+
+  const [referralCode, setReferralCode] =
+    useState(() =>
+      getReferralCodeFromUrl() ?? ''
+    );
+
+  const [welcomeMessage, setWelcomeMessage] =
+    useState<string | null>(null);
+
+  const processedAddress =
+    useRef<string | null>(null);
+
+  const rewardProcessed =
+    useRef<string | null>(null);
+
+  // ============================================================
+  // TELEGRAM
+  // ============================================================
+
   useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    if (tg) {
-      tg.ready();
-      tg.expand();
+    const tg =
+      window.Telegram?.WebApp;
+
+    if (!tg) {
+      return;
     }
+
+    tg.ready();
+    tg.expand();
   }, []);
 
-  // NOTE: tonProof is optional in TON Connect 2.4.4.
-  // A real tonProof payload must come from a backend that signs a
-  // challenge with the wallet. Sending a fake/static value here causes
-  // the wallet to reject the connection request, so we intentionally
-  // do NOT set connect request parameters until a real backend exists.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    tonConnectUI.setConnectRequestParameters(null);
-  }, [tonConnectUI]);
+  // ============================================================
+  // WALLET CONNECTION
+  // ============================================================
 
   useEffect(() => {
-    if (!connectionRestored || !wallet) return;
+    if (!connectionRestored) {
+      return;
+    }
 
-    const address = userFriendlyAddress || rawAddress;
-    if (!address) return;
+    if (!wallet) {
+      processedAddress.current = null;
+      return;
+    }
 
-    const walletSession = createWalletSession(address);
+    const address =
+      userFriendlyAddress ||
+      rawAddress;
+
+    if (!address) {
+      return;
+    }
+
+    if (
+      processedAddress.current === address
+    ) {
+      return;
+    }
+
+    processedAddress.current =
+      address;
+
+    const walletSession =
+      createWalletSession(address);
+
     void (async () => {
-      await connectWallet(walletSession);
-
-      // Initialise the economy stores once the wallet identity is known.
-      await useGemStore.getState().initialize();
-      await useResourceStore.getState().initialize();
-      await useVipStore.getState().initialize();
-
-      // Grant the 100 Gem welcome reward (once) + record any referral.
-      const reward = await claimLoginRewards(referralCode);
-      if (reward.welcomeGems > 0) {
-        useGemStore.getState().addGems(reward.welcomeGems);
-        useResourceStore.getState().addGems(reward.welcomeGems);
-        setWelcomeMessage(
-          `🎁 Welcome! +${reward.welcomeGems} 💎 added.`
+      try {
+        await connectWallet(
+          walletSession
         );
-      }
 
-      if (reward.referralGems > 0) {
-        setWelcomeMessage(
-          `🎁 Welcome! +${reward.welcomeGems} 💎 + referral bonus.`
+        await Promise.all([
+          useGemStore
+            .getState()
+            .initialize(),
+
+          useResourceStore
+            .getState()
+            .initialize(),
+
+          useVipStore
+            .getState()
+            .initialize(),
+        ]);
+
+        // --------------------------------------------------------
+        // LOGIN REWARD
+        // --------------------------------------------------------
+
+        if (
+          rewardProcessed.current !==
+          address
+        ) {
+          rewardProcessed.current =
+            address;
+
+          const reward =
+            await claimLoginRewards(
+              referralCode
+            );
+
+          if (
+            reward.ok &&
+            reward.welcomeGems > 0
+          ) {
+            useGemStore
+              .getState()
+              .addGems(
+                reward.welcomeGems
+              );
+
+            useResourceStore
+              .getState()
+              .addGems(
+                reward.welcomeGems
+              );
+
+            setWelcomeMessage(
+              `Welcome! +${reward.welcomeGems} Gems added.`
+            );
+          }
+
+          if (
+            reward.ok &&
+            reward.referralGems > 0
+          ) {
+            setWelcomeMessage(
+              `Welcome! +${reward.welcomeGems} Gems + referral bonus.`
+            );
+          }
+        }
+      } catch (err) {
+        console.error(
+          '[WalletConnectionScreen] Connection error:',
+          err
         );
       }
     })();
-  }, [connectionRestored, wallet, userFriendlyAddress, rawAddress, connectWallet, referralCode]);
+  }, [
+    connectionRestored,
+    wallet,
+    userFriendlyAddress,
+    rawAddress,
+    connectWallet,
+    referralCode,
+  ]);
+
+  // ============================================================
+  // RESTORING
+  // ============================================================
 
   if (!connectionRestored) {
     return (
@@ -109,16 +226,28 @@ export function WalletConnectionScreen() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundImage: `url(${WALLET_BACKGROUND})`,
+          backgroundImage:
+            `url(${WALLET_BACKGROUND})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
         }}
       >
-        <p style={{ color: '#8fb5ff', fontSize: '1.1rem' }}>Restoring connection...</p>
+        <p
+          style={{
+            color: '#8fb5ff',
+            fontSize: '1.1rem',
+          }}
+        >
+          Restoring connection...
+        </p>
       </div>
     );
   }
+
+  // ============================================================
+  // SCREEN
+  // ============================================================
 
   return (
     <div
@@ -127,7 +256,8 @@ export function WalletConnectionScreen() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundImage: `url(${WALLET_BACKGROUND})`,
+        backgroundImage:
+          `url(${WALLET_BACKGROUND})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -140,20 +270,54 @@ export function WalletConnectionScreen() {
           width: '100%',
           padding: '2.5rem 2rem',
           borderRadius: 24,
-          background: 'rgba(10, 14, 26, 0.85)',
-          backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(79, 124, 255, 0.3)',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          background:
+            'rgba(10, 14, 26, 0.85)',
+          backdropFilter:
+            'blur(12px)',
+          border:
+            '1px solid rgba(79, 124, 255, 0.3)',
+          boxShadow:
+            '0 20px 60px rgba(0,0,0,0.6)',
           textAlign: 'center',
         }}
       >
-        <div style={{ marginBottom: '1rem' }}>
-          <span style={{ fontSize: '2.5rem' }}>🌌</span>
+        <div
+          style={{
+            marginBottom: '1rem',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '2.5rem',
+            }}
+          >
+            🌌
+          </span>
         </div>
-        <h1 style={{ margin: 0, fontSize: '2rem', letterSpacing: '0.05em', color: '#ffffff' }}>LAND-ORION</h1>
-        <p style={{ marginTop: '0.5rem', marginBottom: '1.5rem', color: '#8fb5ff', fontSize: '0.95rem' }}>
+
+        <h1
+          style={{
+            margin: 0,
+            fontSize: '2rem',
+            letterSpacing: '0.05em',
+            color: '#ffffff',
+          }}
+        >
+          LAND-ORION
+        </h1>
+
+        <p
+          style={{
+            marginTop: '0.5rem',
+            marginBottom: '1.5rem',
+            color: '#8fb5ff',
+            fontSize: '0.95rem',
+          }}
+        >
           Enter the world of Orion
         </p>
+
+        {/* REFERRAL */}
 
         <label
           htmlFor="referral-code"
@@ -172,7 +336,10 @@ export function WalletConnectionScreen() {
           id="referral-code"
           value={referralCode}
           onChange={(event) =>
-            setReferralCode(event.target.value.toUpperCase())
+            setReferralCode(
+              event.target.value
+                .toUpperCase()
+            )
           }
           placeholder="e.g. ABC12345"
           style={{
@@ -180,8 +347,10 @@ export function WalletConnectionScreen() {
             boxSizing: 'border-box',
             padding: '0.6rem 0.8rem',
             borderRadius: 10,
-            border: '1px solid rgba(79,124,255,0.4)',
-            background: 'rgba(255,255,255,0.06)',
+            border:
+              '1px solid rgba(79,124,255,0.4)',
+            background:
+              'rgba(255,255,255,0.06)',
             color: '#fff',
             fontSize: '0.9rem',
             textTransform: 'uppercase',
@@ -191,14 +360,33 @@ export function WalletConnectionScreen() {
           }}
         />
 
-        <p style={{ margin: '0 0 0.4rem', fontSize: '0.72rem', color: '#6b7c99' }}>
-          Join with a friend's code to unlock a referral bonus. Every new player
-          receives 100 💎 on first login.
+        <p
+          style={{
+            margin:
+              '0 0 0.4rem',
+            fontSize: '0.72rem',
+            color: '#6b7c99',
+          }}
+        >
+          Join with a friend's code
+          to unlock a referral bonus.
+          Every new player receives
+          100 Gems on first login.
         </p>
 
-        <div style={{ margin: '2rem 0', display: 'flex', justifyContent: 'center' }}>
+        {/* TON CONNECT */}
+
+        <div
+          style={{
+            margin: '2rem 0',
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
           <TonConnectButton />
         </div>
+
+        {/* WELCOME REWARD */}
 
         {welcomeMessage && (
           <div
@@ -206,8 +394,10 @@ export function WalletConnectionScreen() {
               marginBottom: '0.8rem',
               padding: '0.6rem',
               borderRadius: 10,
-              background: 'rgba(46,160,67,0.15)',
-              border: '1px solid rgba(46,160,67,0.4)',
+              background:
+                'rgba(46,160,67,0.15)',
+              border:
+                '1px solid rgba(46,160,67,0.4)',
               color: '#4cd07d',
               fontSize: '0.85rem',
               fontWeight: 700,
@@ -217,16 +407,48 @@ export function WalletConnectionScreen() {
           </div>
         )}
 
-        {connectionStatus === 'connecting' && (
-          <p style={{ color: '#8fb5ff' }}>Connecting wallet... searching player profile in Supabase.</p>
+        {/* CONNECTING */}
+
+        {connectionStatus ===
+          'connecting' && (
+          <p
+            style={{
+              color: '#8fb5ff',
+            }}
+          >
+            Connecting wallet...
+          </p>
         )}
 
-        {connectionStatus === 'connected' && session && (
-          <div style={{ marginTop: '1rem' }}>
-            <p>Connected: {formatWalletAddress(session.address)}</p>
-            <p style={{ color: '#32c787' }}>Player profile loaded. Entering the game world...</p>
-          </div>
-        )}
+        {/* CONNECTED */}
+
+        {connectionStatus ===
+          'connected' &&
+          session && (
+            <div
+              style={{
+                marginTop: '1rem',
+              }}
+            >
+              <p>
+                Connected:{' '}
+                {formatWalletAddress(
+                  session.address
+                )}
+              </p>
+
+              <p
+                style={{
+                  color: '#32c787',
+                }}
+              >
+                Player profile loaded.
+                Entering the game world...
+              </p>
+            </div>
+          )}
+
+        {/* ERROR */}
 
         {error && (
           <div
@@ -234,17 +456,43 @@ export function WalletConnectionScreen() {
               marginTop: '1rem',
               padding: '0.75rem',
               borderRadius: 10,
-              background: 'rgba(255,80,80,0.1)',
-              border: '1px solid rgba(255,80,80,0.4)',
+              background:
+                'rgba(255,80,80,0.1)',
+              border:
+                '1px solid rgba(255,80,80,0.4)',
             }}
           >
-            <p style={{ color: '#ff6b6b', fontSize: '0.9rem' }}>{error}</p>
+            <p
+              style={{
+                color: '#ff6b6b',
+                fontSize: '0.9rem',
+                margin: 0,
+              }}
+            >
+              {error}
+            </p>
           </div>
         )}
 
-        <p style={{ marginTop: '1.5rem', fontSize: '0.8rem', color: '#6b7c99' }}>
-          Connect via the official TON Connect modal to enter Land-Orion.
+        <p
+          style={{
+            marginTop: '1.5rem',
+            fontSize: '0.8rem',
+            color: '#6b7c99',
+          }}
+        >
+          Connect via TON Connect
+          to enter Land-Orion.
         </p>
+
+        {/* Manifest is intentionally explicit in main.tsx */}
+        <span
+          style={{
+            display: 'none',
+          }}
+        >
+          {TON_MANIFEST_URL}
+        </span>
       </div>
     </div>
   );
