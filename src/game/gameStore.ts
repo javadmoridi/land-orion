@@ -57,18 +57,9 @@ function createWorldTiles(): WorldTile[] {
 
   const GRID_SIZE = 10;
 
-  for (
-    let y = 0;
-    y < GRID_SIZE;
-    y++
-  ) {
-    for (
-      let x = 0;
-      x < GRID_SIZE;
-      x++
-    ) {
-      let type: WorldTile['type'] =
-        'grass';
+  for (let y = 0; y < GRID_SIZE; y++) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+      let type: WorldTile['type'] = 'grass';
 
       if (
         (x === 2 && y === 2) ||
@@ -119,14 +110,13 @@ function createWorldTiles(): WorldTile[] {
 }
 
 function createFreshGameState(
-  playerId: string
+  playerId: string,
 ): GameState {
   return {
     playerId,
     progress: {
       completedMissions: [],
-      currentMissionId:
-        'intro-mission',
+      currentMissionId: 'intro-mission',
       lastAction: 'in-game',
     },
     inventory: [],
@@ -137,15 +127,13 @@ function createFreshGameState(
 }
 
 function loadLocalGameSave(): LocalGameSave | null {
-  if (
-    typeof window === 'undefined'
-  ) {
+  if (typeof window === 'undefined') {
     return null;
   }
 
   const raw =
     window.localStorage.getItem(
-      LOCAL_GAME_STORAGE_KEY
+      LOCAL_GAME_STORAGE_KEY,
     );
 
   if (!raw) {
@@ -170,9 +158,7 @@ function loadLocalGameSave(): LocalGameSave | null {
         },
 
       worldTiles:
-        Array.isArray(
-          parsed.worldTiles
-        )
+        Array.isArray(parsed.worldTiles)
           ? parsed.worldTiles
           : createWorldTiles(),
 
@@ -187,17 +173,15 @@ function loadLocalGameSave(): LocalGameSave | null {
 }
 
 function writeLocalGameSave(
-  save: LocalGameSave
+  save: LocalGameSave,
 ): void {
-  if (
-    typeof window === 'undefined'
-  ) {
+  if (typeof window === 'undefined') {
     return;
   }
 
   window.localStorage.setItem(
     LOCAL_GAME_STORAGE_KEY,
-    JSON.stringify(save)
+    JSON.stringify(save),
   );
 }
 
@@ -243,7 +227,7 @@ interface GameStoreState {
     | null;
 
   connectWallet: (
-    session: WalletSession
+    session: WalletSession,
   ) => Promise<void>;
 
   disconnectWallet: () => void;
@@ -251,51 +235,51 @@ interface GameStoreState {
   saveGame: () => Promise<void>;
 
   loadGame: (
-    playerId: string
+    playerId: string,
   ) => Promise<void>;
 
   movePlayer: (
     dx: number,
-    dy: number
+    dy: number,
   ) => void;
 
   interactWithTile: (
-    tile: WorldTile
+    tile: WorldTile,
   ) => void;
 
   selectTile: (
-    tile: WorldTile | null
+    tile: WorldTile | null,
   ) => void;
 
   addToInventory: (
-    item: InventoryItem
+    item: InventoryItem,
   ) => void;
 
   removeFromInventory: (
     id: string,
-    quantity?: number
+    quantity?: number,
   ) => boolean;
 
   addResource: (
     key: string,
-    amount: number
+    amount: number,
   ) => void;
 
   spendResource: (
     key: string,
-    amount: number
+    amount: number,
   ) => boolean;
 
   hasItem: (
-    id: string
+    id: string,
   ) => boolean;
 
   canCookFood: (
-    food: FoodDefinition
+    food: FoodDefinition,
   ) => boolean;
 
   cookFood: (
-    food: FoodDefinition
+    food: FoodDefinition,
   ) => boolean;
 }
 
@@ -333,9 +317,9 @@ export const useGameStore =
       playerPosition:
         initialLocalSave
           ?.playerPosition ?? {
-            x: 5,
-            y: 5,
-          },
+          x: 5,
+          y: 5,
+        },
 
       worldTiles:
         initialLocalSave
@@ -344,46 +328,32 @@ export const useGameStore =
 
       selectedTile: null,
 
-      // ================================================================
-      // CONNECT WALLET
-      // ================================================================
-
       connectWallet:
         async (session) => {
           set({
             wallet: session,
-
             connectionStatus:
               'connecting',
-
             error: null,
           });
 
           try {
-            console.log(
-              '[DEBUG] Finding player:',
-              session.address
-            );
-
             const existingPlayer =
               await findPlayerByWallet(
-                session.address
+                session.address,
               );
 
             if (existingPlayer) {
               set({
                 playerProfile:
                   existingPlayer,
-
                 connectionStatus:
                   'connected',
-
-                isConnected:
-                  true,
+                isConnected: true,
               });
 
               await get().loadGame(
-                existingPlayer.id
+                existingPlayer.id,
               );
 
               return;
@@ -391,7 +361,7 @@ export const useGameStore =
 
             const newProfile =
               await createNewPlayer(
-                session.address
+                session.address,
               );
 
             const now =
@@ -399,7 +369,7 @@ export const useGameStore =
 
             const newGameState =
               createFreshGameState(
-                newProfile.id
+                newProfile.id,
               );
 
             set({
@@ -412,14 +382,12 @@ export const useGameStore =
               connectionStatus:
                 'connected',
 
-              isConnected:
-                true,
+              isConnected: true,
 
               saveStatus:
                 'saved',
 
-              lastSavedAt:
-                now,
+              lastSavedAt: now,
             });
 
             writeLocalGameSave({
@@ -441,24 +409,23 @@ export const useGameStore =
             await savePlayerData({
               player: {
                 ...newProfile,
+                inventory:
+                  newGameState.inventory,
                 lastSeenAt: now,
               },
 
               gameState:
                 newGameState,
 
-              land: newProfile.land,
+              land:
+                newProfile.land,
 
               savedAt: now,
             });
-
-            console.log(
-              '[DEBUG] Wallet connection complete'
-            );
           } catch (err) {
             console.error(
               '[DEBUG] CONNECT ERROR:',
-              err
+              err,
             );
 
             set({
@@ -474,10 +441,6 @@ export const useGameStore =
             });
           }
         },
-
-      // ================================================================
-      // DISCONNECT
-      // ================================================================
 
       disconnectWallet: () => {
         set({
@@ -496,10 +459,6 @@ export const useGameStore =
           selectedTile: null,
         });
       },
-
-      // ================================================================
-      // SAVE GAME
-      // ================================================================
 
       saveGame: async () => {
         const {
@@ -522,18 +481,25 @@ export const useGameStore =
         if (!localPlayer) {
           localPlayer = {
             id: 'local-player',
-            walletAddress:
-              'local',
-            username:
-              'Local Player',
+
+            walletAddress: 'local',
+
+            username: 'Local Player',
+
             level: 1,
+
             experience: 0,
+
             status: 'in-game',
+
             inventory:
               localGameState?.inventory ??
               [],
+
             land: [],
+
             createdAt: now,
+
             lastSeenAt: now,
           };
         }
@@ -541,17 +507,40 @@ export const useGameStore =
         if (!localGameState) {
           localGameState =
             createFreshGameState(
-              localPlayer.id
+              localPlayer.id,
             );
         }
 
-        const localSave: LocalGameSave =
+        const currentInventory =
+          localGameState.inventory ?? [];
+
+        const synchronizedPlayer: PlayerProfile =
           {
+            ...localPlayer,
+
+            inventory:
+              currentInventory,
+
+            lastSeenAt: now,
+          };
+
+        const synchronizedGameState:
+          GameState = {
+            ...localGameState,
+
+            inventory:
+              currentInventory,
+
+            status: 'in-game',
+          };
+
+        const localSave:
+          LocalGameSave = {
             playerProfile:
-              localPlayer,
+              synchronizedPlayer,
 
             gameState:
-              localGameState,
+              synchronizedGameState,
 
             playerPosition,
 
@@ -561,22 +550,23 @@ export const useGameStore =
           };
 
         writeLocalGameSave(
-          localSave
+          localSave,
         );
+
+        set({
+          playerProfile:
+            synchronizedPlayer,
+
+          gameState:
+            synchronizedGameState,
+        });
 
         if (
           !wallet ||
           !playerProfile
         ) {
           set({
-            playerProfile:
-              localPlayer,
-
-            gameState:
-              localGameState,
-
-            saveStatus:
-              'saved',
+            saveStatus: 'saved',
 
             lastSavedAt: now,
 
@@ -588,42 +578,32 @@ export const useGameStore =
 
         const payload:
           BackendSavePayload = {
-            player: {
-              ...playerProfile,
+            player:
+              synchronizedPlayer,
 
-              lastSeenAt: now,
-            },
-
-            gameState: {
-              ...localGameState,
-
-              status:
-                'in-game',
-            },
+            gameState:
+              synchronizedGameState,
 
             land:
-              playerProfile.land,
+              synchronizedPlayer.land,
 
             savedAt: now,
           };
 
         set({
           isSaving: true,
-
-          saveStatus:
-            'saving',
+          saveStatus: 'saving',
         });
 
         try {
           await savePlayerData(
-            payload
+            payload,
           );
 
           set({
             isSaving: false,
 
-            saveStatus:
-              'saved',
+            saveStatus: 'saved',
 
             lastSavedAt:
               payload.savedAt,
@@ -633,14 +613,13 @@ export const useGameStore =
         } catch (err) {
           console.error(
             '[Save] SUPABASE ERROR:',
-            err
+            err,
           );
 
           set({
             isSaving: false,
 
-            saveStatus:
-              'error',
+            saveStatus: 'error',
 
             lastSavedAt: now,
 
@@ -652,37 +631,47 @@ export const useGameStore =
         }
       },
 
-      // ================================================================
-      // LOAD GAME
-      // ================================================================
-
       loadGame:
         async (playerId) => {
           try {
-            console.log(
-              '[Game] Loading player:',
-              playerId
-            );
-
             const loaded =
               await loadPlayerData(
-                playerId
+                playerId,
               );
 
             if (!loaded) {
-              console.warn(
-                '[Game] No remote save found. Keeping local save.'
-              );
-
               return;
             }
 
+            const loadedInventory =
+              loaded.gameState
+                ?.inventory ??
+              loaded.player
+                ?.inventory ??
+              [];
+
+            const loadedPlayer:
+              PlayerProfile = {
+                ...loaded.player,
+
+                inventory:
+                  loadedInventory,
+              };
+
+            const loadedGameState:
+              GameState = {
+                ...loaded.gameState,
+
+                inventory:
+                  loadedInventory,
+              };
+
             set({
               playerProfile:
-                loaded.player,
+                loadedPlayer,
 
               gameState:
-                loaded.gameState,
+                loadedGameState,
 
               lastSavedAt:
                 loaded.savedAt,
@@ -693,10 +682,10 @@ export const useGameStore =
 
             writeLocalGameSave({
               playerProfile:
-                loaded.player,
+                loadedPlayer,
 
               gameState:
-                loaded.gameState,
+                loadedGameState,
 
               playerPosition:
                 get().playerPosition,
@@ -707,14 +696,10 @@ export const useGameStore =
               savedAt:
                 loaded.savedAt,
             });
-
-            console.log(
-              '[Game] Load complete'
-            );
           } catch (err) {
             console.error(
               '[Load] ERROR:',
-              err
+              err,
             );
 
             set({
@@ -726,13 +711,9 @@ export const useGameStore =
           }
         },
 
-      // ================================================================
-      // PLAYER MOVEMENT
-      // ================================================================
-
       movePlayer: (
         dx,
-        dy
+        dy,
       ) => {
         const {
           playerPosition,
@@ -740,12 +721,10 @@ export const useGameStore =
         } = get();
 
         const newX =
-          playerPosition.x +
-          dx;
+          playerPosition.x + dx;
 
         const newY =
-          playerPosition.y +
-          dy;
+          playerPosition.y + dy;
 
         if (
           newX < 1 ||
@@ -760,7 +739,7 @@ export const useGameStore =
           worldTiles.find(
             (t) =>
               t.x === newX &&
-              t.y === newY
+              t.y === newY,
           );
 
         if (
@@ -778,10 +757,6 @@ export const useGameStore =
         });
       },
 
-      // ================================================================
-      // TILE INTERACTION
-      // ================================================================
-
       interactWithTile:
         (tile) => {
           const {
@@ -794,11 +769,11 @@ export const useGameStore =
           const distance =
             Math.abs(
               tile.x -
-                playerPosition.x
+                playerPosition.x,
             ) +
             Math.abs(
               tile.y -
-                playerPosition.y
+                playerPosition.y,
             );
 
           if (distance > 1) {
@@ -818,10 +793,9 @@ export const useGameStore =
                 t.id === tile.id
                   ? {
                       ...t,
-                      harvested:
-                        true,
+                      harvested: true,
                     }
-                  : t
+                  : t,
             );
 
           const resources = {
@@ -833,24 +807,24 @@ export const useGameStore =
             tile.type === 'tree'
           ) {
             resources.wood =
-              (resources.wood ??
-                0) + 5;
+              (resources.wood ?? 0) +
+              5;
           }
 
           if (
             tile.type === 'rock'
           ) {
             resources.stone =
-              (resources.stone ??
-                0) + 3;
+              (resources.stone ?? 0) +
+              3;
           }
 
           if (
             tile.type === 'farm'
           ) {
             resources.food =
-              (resources.food ??
-                0) + 10;
+              (resources.food ?? 0) +
+              10;
           }
 
           const nextGameState =
@@ -873,9 +847,14 @@ export const useGameStore =
                       'harvested',
                   },
 
-                  inventory: [],
+                  inventory:
+                    playerProfile?.inventory ??
+                    [],
+
                   resources,
+
                   currency: {},
+
                   status:
                     'in-game' as const,
                 };
@@ -891,22 +870,13 @@ export const useGameStore =
           void get().saveGame();
         },
 
-      // ================================================================
-      // SELECT TILE
-      // ================================================================
-
       selectTile: (
-        tile
+        tile,
       ) => {
         set({
-          selectedTile:
-            tile,
+          selectedTile: tile,
         });
       },
-
-      // ================================================================
-      // ADD INVENTORY
-      // ================================================================
 
       addToInventory:
         (item) => {
@@ -924,7 +894,7 @@ export const useGameStore =
             inventory.find(
               (i) =>
                 i.id === item.id &&
-                i.type === item.type
+                i.type === item.type,
             );
 
           const next =
@@ -938,7 +908,7 @@ export const useGameStore =
                             i.quantity +
                             item.quantity,
                         }
-                      : i
+                      : i,
                 )
               : [
                   ...inventory,
@@ -949,8 +919,7 @@ export const useGameStore =
             gameState
               ? {
                   ...gameState,
-                  inventory:
-                    next,
+                  inventory: next,
                 }
               : {
                   playerId:
@@ -966,31 +935,41 @@ export const useGameStore =
                       'bought-egg',
                   },
 
-                  inventory:
-                    next,
+                  inventory: next,
 
                   resources: {},
+
                   currency: {},
+
                   status:
                     'in-game' as const,
                 };
 
+          const nextPlayerProfile =
+            playerProfile
+              ? {
+                  ...playerProfile,
+                  inventory: next,
+                  lastSeenAt:
+                    new Date().toISOString(),
+                }
+              : playerProfile;
+
           set({
             gameState:
               nextGameState,
+
+            playerProfile:
+              nextPlayerProfile,
           });
 
           void get().saveGame();
         },
 
-      // ================================================================
-      // REMOVE INVENTORY
-      // ================================================================
-
       removeFromInventory:
         (
           id,
-          quantity = 1
+          quantity = 1,
         ) => {
           const {
             gameState,
@@ -1004,8 +983,7 @@ export const useGameStore =
 
           const existing =
             inventory.find(
-              (i) =>
-                i.id === id
+              (i) => i.id === id,
             );
 
           if (
@@ -1027,19 +1005,18 @@ export const useGameStore =
                           i.quantity -
                           quantity,
                       }
-                    : i
+                    : i,
               )
               .filter(
                 (i) =>
-                  i.quantity > 0
+                  i.quantity > 0,
               );
 
           const nextGameState =
             gameState
               ? {
                   ...gameState,
-                  inventory:
-                    next,
+                  inventory: next,
                 }
               : {
                   playerId:
@@ -1055,18 +1032,32 @@ export const useGameStore =
                       'removed-inventory',
                   },
 
-                  inventory:
-                    next,
+                  inventory: next,
 
                   resources: {},
+
                   currency: {},
+
                   status:
                     'in-game' as const,
                 };
 
+          const nextPlayerProfile =
+            playerProfile
+              ? {
+                  ...playerProfile,
+                  inventory: next,
+                  lastSeenAt:
+                    new Date().toISOString(),
+                }
+              : playerProfile;
+
           set({
             gameState:
               nextGameState,
+
+            playerProfile:
+              nextPlayerProfile,
           });
 
           void get().saveGame();
@@ -1074,13 +1065,9 @@ export const useGameStore =
           return true;
         },
 
-      // ================================================================
-      // ADD RESOURCE
-      // ================================================================
-
       addResource: (
         key,
-        amount
+        amount,
       ) => {
         if (amount < 0) {
           return;
@@ -1120,9 +1107,14 @@ export const useGameStore =
                     'add-resource',
                 },
 
-                inventory: [],
+                inventory:
+                  playerProfile?.inventory ??
+                  [],
+
                 resources,
+
                 currency: {},
+
                 status:
                   'in-game' as const,
               };
@@ -1135,13 +1127,9 @@ export const useGameStore =
         void get().saveGame();
       },
 
-      // ================================================================
-      // SPEND RESOURCE
-      // ================================================================
-
       spendResource: (
         key,
-        amount
+        amount,
       ) => {
         if (amount < 0) {
           return false;
@@ -1160,9 +1148,7 @@ export const useGameStore =
         const current =
           resources[key] ?? 0;
 
-        if (
-          current < amount
-        ) {
+        if (current < amount) {
           return false;
         }
 
@@ -1189,9 +1175,14 @@ export const useGameStore =
                     'spend-resource',
                 },
 
-                inventory: [],
+                inventory:
+                  playerProfile?.inventory ??
+                  [],
+
                 resources,
+
                 currency: {},
+
                 status:
                   'in-game' as const,
               };
@@ -1206,12 +1197,8 @@ export const useGameStore =
         return true;
       },
 
-      // ================================================================
-      // INVENTORY CHECK
-      // ================================================================
-
       hasItem: (
-        id
+        id,
       ) =>
         (
           get().gameState
@@ -1222,12 +1209,8 @@ export const useGameStore =
         ).some(
           (i) =>
             i.id === id &&
-            i.quantity > 0
+            i.quantity > 0,
         ),
-
-      // ================================================================
-      // FOOD / KITCHEN
-      // ================================================================
 
       canCookFood:
         (food) => {
@@ -1271,14 +1254,14 @@ export const useGameStore =
                   (i) =>
                     i.id ===
                       ingredient.id &&
-                    i.quantity > 0
+                    i.quantity > 0,
                 );
 
               return (
                 (item?.quantity ?? 0) >=
                 ingredient.quantity
               );
-            }
+            },
           );
         },
 
@@ -1289,11 +1272,6 @@ export const useGameStore =
             playerProfile,
           } = get();
 
-          /*
-           * Resolve the latest food definition from the catalog.
-           * This also protects the store from accidentally receiving
-           * an invalid/stale food object.
-           */
           const catalogFood =
             getFoodById(food.id);
 
@@ -1312,11 +1290,6 @@ export const useGameStore =
               []),
           ];
 
-          /*
-           * Check every ingredient BEFORE changing anything.
-           * Therefore a failed cooking attempt never partially
-           * consumes materials.
-           */
           const enoughIngredients =
             catalogFood.ingredients.every(
               (ingredient) => {
@@ -1344,23 +1317,20 @@ export const useGameStore =
                     (i) =>
                       i.id ===
                         ingredient.id &&
-                      i.quantity > 0
+                      i.quantity > 0,
                   );
 
                 return (
                   (item?.quantity ?? 0) >=
                   ingredient.quantity
                 );
-              }
+              },
             );
 
           if (!enoughIngredients) {
             return false;
           }
 
-          /*
-           * Consume all ingredients.
-           */
           for (
             const ingredient of
               catalogFood.ingredients
@@ -1391,12 +1361,11 @@ export const useGameStore =
               inventory.findIndex(
                 (item) =>
                   item.id ===
-                  ingredient.id
+                  ingredient.id,
               );
 
             if (
-              inventoryIndex ===
-              -1
+              inventoryIndex === -1
             ) {
               return false;
             }
@@ -1415,7 +1384,7 @@ export const useGameStore =
             ) {
               inventory.splice(
                 inventoryIndex,
-                1
+                1,
               );
             } else {
               inventory[
@@ -1428,9 +1397,6 @@ export const useGameStore =
             }
           }
 
-          /*
-           * Create the cooked food inventory item.
-           */
           const foodInventoryId =
             `food:${catalogFood.id}`;
 
@@ -1438,7 +1404,7 @@ export const useGameStore =
             inventory.find(
               (item) =>
                 item.id ===
-                foodInventoryId
+                foodInventoryId,
             );
 
           if (existingFood) {
@@ -1446,23 +1412,16 @@ export const useGameStore =
           } else {
             inventory.push({
               id: foodInventoryId,
+
               name:
                 catalogFood.name,
+
               type: 'food',
+
               quantity: 1,
-              rarity:
-                catalogFood.level >= 10
-                  ? 'mythic'
-                  : catalogFood.level >=
-                      8
-                    ? 'legendary'
-                    : catalogFood.level >=
-                        6
-                      ? 'epic'
-                      : catalogFood.level >=
-                          4
-                        ? 'rare'
-                        : 'common',
+
+              rarity: 'common',
+
               image:
                 catalogFood.image,
             });
@@ -1508,14 +1467,27 @@ export const useGameStore =
                     'in-game' as const,
                 };
 
+          const nextPlayerProfile =
+            playerProfile
+              ? {
+                  ...playerProfile,
+                  inventory,
+                  lastSeenAt:
+                    new Date().toISOString(),
+                }
+              : playerProfile;
+
           set({
             gameState:
               nextGameState,
+
+            playerProfile:
+              nextPlayerProfile,
           });
 
           void get().saveGame();
 
           return true;
         },
-    })
+    }),
   );

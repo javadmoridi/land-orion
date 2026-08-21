@@ -1,54 +1,72 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+import type { LandPlot } from '../types';
 
-const isConfigured = Boolean(supabaseUrl && supabaseAnonKey && !supabaseUrl.includes('your-project') && supabaseAnonKey !== 'your-anon-key');
+const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL as
+    | string
+    | undefined;
 
-let currentWalletHeader: string | undefined;
+const SUPABASE_ANON_KEY =
+  import.meta.env.VITE_SUPABASE_ANON_KEY as
+    | string
+    | undefined;
 
-export const supabase: SupabaseClient | null = isConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {},
-        fetch: (input, init) => {
-          const headers = new Headers(init?.headers);
-          if (currentWalletHeader) {
-            headers.set('x-wallet-address', currentWalletHeader);
-          }
-          return fetch(input, { ...init, headers });
-        },
-      },
-    })
-  : null;
+export const isSupabaseConfigured =
+  Boolean(
+    SUPABASE_URL &&
+      SUPABASE_ANON_KEY,
+  );
 
-export const isSupabaseConfigured = isConfigured;
+export const supabase =
+  isSupabaseConfigured
+    ? createClient(
+        SUPABASE_URL!,
+        SUPABASE_ANON_KEY!,
+      )
+    : null;
 
-/**
- * Sets the custom header used by RLS policies to identify the current wallet.
- * Must be called before any Supabase query so RLS can match the row.
- */
-export function setWalletHeader(walletAddress: string): void {
-  currentWalletHeader = walletAddress;
-}
+// ============================================================================
+// PLAYER ROW
+// ============================================================================
 
-export interface PlayerRow {
+export type PlayerRow = {
   id: string;
-  wallet_address: string;
-  username: string;
-  level: number;
-  experience: number;
-  status: string;
-  inventory: unknown;
-  land: unknown;
-  game_state: unknown;
+  wallet: string;
+  level: number | null;
+  game_data: unknown;
   created_at: string;
-  last_seen_at: string;
+};
+
+// ============================================================================
+// WALLET HEADER
+// ============================================================================
+
+let currentWallet: string | null =
+  null;
+
+export function setWalletHeader(
+  walletAddress: string,
+): void {
+  currentWallet =
+    walletAddress;
 }
 
-export interface SaveRow {
-  id: string;
-  player_id: string;
-  player_data: unknown;
-  saved_at: string;
+export function getWalletHeader():
+  | string
+  | null {
+  return currentWallet;
 }
+
+// ============================================================================
+// LAND TYPE HELPER
+// ============================================================================
+
+export type SupabaseLandPlot =
+  LandPlot;
+
+// ============================================================================
+// DEFAULT EXPORT
+// ============================================================================
+
+export default supabase;

@@ -1,260 +1,713 @@
-import type { BackendSavePayload, GameState, LandPlot, PlayerProfile } from '../types';
-import { supabase, isSupabaseConfigured, setWalletHeader, type PlayerRow, type SaveRow } from './supabaseClient';
+import type {
+  BackendSavePayload,
+  GameState,
+  LandPlot,
+  PlayerProfile,
+} from '../types';
+
+import {
+  supabase,
+  isSupabaseConfigured,
+  setWalletHeader,
+} from './supabaseClient';
 
 export class SupabaseNotConfiguredError extends Error {
   constructor() {
-    super('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env');
+    super(
+      'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env',
+    );
     this.name = 'SupabaseNotConfiguredError';
   }
 }
 
-// ---------------------------------------------------------------------------
-// Local fallback so the game can be entered before real Supabase creds exist.
-// Once VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are set, Supabase is used.
-// ---------------------------------------------------------------------------
+// ============================================================
+// LOCAL FALLBACK
+// ============================================================
+
 const FALLBACK_STORAGE_KEY = 'land-orion-save';
 
 function warnIfNotConfigured(): void {
   if (!isSupabaseConfigured) {
     console.warn(
-      '[land-orion] Supabase is NOT configured. Using LOCAL fallback storage. ' +
-        'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env to enable real persistence.',
+      '[land-orion] Supabase is NOT configured. Using LOCAL fallback storage.',
     );
   }
 }
 
 function readFallback(): BackendSavePayload | null {
-  if (typeof window === 'undefined') return null;
-  const raw = window.localStorage.getItem(FALLBACK_STORAGE_KEY);
-  if (!raw) return null;
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(
+    FALLBACK_STORAGE_KEY,
+  );
+
+  if (!raw) {
+    return null;
+  }
+
   try {
-    return JSON.parse(raw) as BackendSavePayload;
+    return JSON.parse(
+      raw,
+    ) as BackendSavePayload;
   } catch {
     return null;
   }
 }
 
-function writeFallback(payload: BackendSavePayload): void {
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(FALLBACK_STORAGE_KEY, JSON.stringify(payload));
-  }
-}
-
-function mapPlayerRowToProfile(row: PlayerRow): PlayerProfile {
-  return {
-    id: row.id,
-    walletAddress: row.wallet_address,
-    username: row.username,
-    level: row.level,
-    experience: row.experience,
-    status: row.status as PlayerProfile['status'],
-    inventory: (row.inventory as PlayerProfile['inventory']) ?? [],
-    land: (row.land as LandPlot[]) ?? [],
-    createdAt: row.created_at,
-    lastSeenAt: row.last_seen_at,
-  };
-}
-
-function mapProfileToRow(profile: PlayerProfile): Record<string, unknown> {
-  return {
-    id: profile.id,
-    wallet_address: profile.walletAddress,
-    username: profile.username,
-    level: profile.level,
-    experience: profile.experience,
-    status: profile.status,
-    inventory: profile.inventory,
-    land: profile.land,
-    last_seen_at: profile.lastSeenAt,
-  };
-}
-
-export async function findPlayerByWallet(walletAddress: string): Promise<PlayerProfile | null> {
-  // No crash if Supabase isn't configured – fall back to local storage.
-  if (!isSupabaseConfigured || !supabase) {
-    warnIfNotConfigured();
-    const stored = readFallback();
-    if (stored && stored.player.walletAddress === walletAddress) return stored.player;
-    return null;
+function writeFallback(
+  payload: BackendSavePayload,
+): void {
+  if (typeof window === 'undefined') {
+    return;
   }
 
-  // Set the wallet header so RLS matches the correct row.
-  setWalletHeader(walletAddress);
-
-  const { data, error } = await supabase
-    .from('players')
-    .select('*')
-    .eq('wallet_address', walletAddress)
-    .maybeSingle();
-
-  if (error) {
-    console.error('[supabase] findPlayerByWallet error:', error.message);
-    throw error;
-  }
-
-  if (!data) return null;
-  return mapPlayerRowToProfile(data as PlayerRow);
+  window.localStorage.setItem(
+    FALLBACK_STORAGE_KEY,
+    JSON.stringify(payload),
+  );
 }
 
-const FRESH_GAME_STATE = (playerId: string): GameState => ({
+// ============================================================
+// GAME STATE
+// ============================================================
+
+const FRESH_GAME_STATE = (
+  playerId: string,
+): GameState => ({
   playerId,
-  progress: { completedMissions: [], currentMissionId: 'intro-mission', lastAction: 'joined-land-orion' },
+
+  progress: {
+    completedMissions: [],
+    currentMissionId: 'intro-mission',
+    lastAction: 'joined-land-orion',
+  },
+
   inventory: [],
   resources: {},
   currency: {},
   status: 'in-game',
 });
 
-export async function createNewPlayer(walletAddress: string): Promise<PlayerProfile> {
-  // No crash if Supabase isn't configured – create a local profile.
+// ============================================================
+// STORED GAME DATA
+// ============================================================
+
+interface StoredGameData {
+  player?: Partial<PlayerProfile>;
+  gameState?: GameState;
+  land?: LandPlot[];
+  savedAt?: string;
+
+  [key: string]: unknown;
+}
+
+// ============================================================
+// DATABASE ROW -> PLAYER PROFILE
+// ============================================================
+
+function mapRowToProfile(
+  row: any,
+  gameData: StoredGameData = {},
+): PlayerProfile {
+  const storedPlayer =
+    gameData.player ?? {};
+
+  const gameState =
+    gameData.gameState;
+
+  const inventory =
+    storedPlayer.inventory ??
+    gameState?.inventory ??
+    [];
+
+  const land =
+    storedPlayer.land ??
+    gameData.land ??
+    [];
+
+  return {
+    ...storedPlayer,
+
+    id: String(row.id),
+
+    walletAddress:
+      row.wallet ??
+      storedPlayer.walletAddress ??
+      '',
+
+    username:
+      storedPlayer.username ??
+      `Player-${String(
+        row.wallet ?? '',
+      ).slice(0, 6)}`,
+
+    level:
+      typeof row.level === 'number'
+        ? row.level
+        : typeof storedPlayer.level === 'number'
+          ? storedPlayer.level
+          : 1,
+
+    experience:
+      typeof storedPlayer.experience === 'number'
+        ? storedPlayer.experience
+        : 0,
+
+    status:
+      storedPlayer.status ??
+      'in-game',
+
+    inventory,
+
+    land,
+
+    createdAt:
+      row.created_at ??
+      storedPlayer.createdAt ??
+      new Date().toISOString(),
+
+    lastSeenAt:
+      storedPlayer.lastSeenAt ??
+      row.created_at ??
+      new Date().toISOString(),
+  } as PlayerProfile;
+}
+
+// ============================================================
+// FIND PLAYER BY WALLET
+// ============================================================
+
+export async function findPlayerByWallet(
+  walletAddress: string,
+): Promise<PlayerProfile | null> {
   if (!isSupabaseConfigured || !supabase) {
     warnIfNotConfigured();
-    const id = `player-${walletAddress}`;
-    const now = new Date().toISOString();
-    const profile: PlayerProfile = {
-      id,
-      walletAddress,
-      username: `Player-${walletAddress.slice(0, 6)}`,
-      level: 1,
-      experience: 0,
-      status: 'in-game',
-      inventory: [],
-      land: [],
-      createdAt: now,
-      lastSeenAt: now,
-    };
-    writeFallback({
-      player: profile,
-      gameState: FRESH_GAME_STATE(id),
-      land: [],
-      savedAt: now,
-    });
-    return profile;
+
+    const stored =
+      readFallback();
+
+    if (
+      stored &&
+      stored.player.walletAddress ===
+        walletAddress
+    ) {
+      return stored.player;
+    }
+
+    return null;
   }
 
-  // Set the wallet header so RLS matches the correct row.
-  setWalletHeader(walletAddress);
+  setWalletHeader(
+    walletAddress,
+  );
 
-  const id = `player-${walletAddress}`;
-  const now = new Date().toISOString();
-  const freshState = FRESH_GAME_STATE(id);
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('players')
+    .select(
+      'id, created_at, wallet, level, game_data',
+    )
+    .eq(
+      'wallet',
+      walletAddress,
+    )
+    .maybeSingle();
 
-  const row: Record<string, unknown> = {
+  if (error) {
+    console.error(
+      '[supabase] findPlayerByWallet:',
+      error.message,
+    );
+
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const gameData =
+    (data.game_data as StoredGameData) ??
+    {};
+
+  return mapRowToProfile(
+    data,
+    gameData,
+  );
+}
+
+// ============================================================
+// CREATE NEW PLAYER
+// ============================================================
+
+export async function createNewPlayer(
+  walletAddress: string,
+): Promise<PlayerProfile> {
+  const now =
+    new Date().toISOString();
+
+  const id =
+    `player-${walletAddress}`;
+
+  const profile:
+    PlayerProfile = {
     id,
-    wallet_address: walletAddress,
-    username: `Player-${walletAddress.slice(0, 6)}`,
+    walletAddress,
+    username:
+      `Player-${walletAddress.slice(0, 6)}`,
     level: 1,
     experience: 0,
     status: 'in-game',
     inventory: [],
     land: [],
-    game_state: freshState,
-    last_seen_at: now,
+    createdAt: now,
+    lastSeenAt: now,
   };
 
-  const { data, error } = await supabase
+  const gameState =
+    FRESH_GAME_STATE(id);
+
+  const gameData:
+    StoredGameData = {
+    player: profile,
+
+    gameState,
+
+    land: [],
+
+    savedAt: now,
+  };
+
+  // ----------------------------------------------------------
+  // LOCAL
+  // ----------------------------------------------------------
+
+  if (!isSupabaseConfigured || !supabase) {
+    warnIfNotConfigured();
+
+    writeFallback({
+      player: profile,
+      gameState,
+      land: [],
+      savedAt: now,
+    });
+
+    return profile;
+  }
+
+  // ----------------------------------------------------------
+  // SUPABASE
+  // ----------------------------------------------------------
+
+  setWalletHeader(
+    walletAddress,
+  );
+
+  const {
+    data,
+    error,
+  } = await supabase
     .from('players')
-    .insert(row)
-    .select('*')
+    .insert({
+      wallet:
+        walletAddress,
+
+      level: 1,
+
+      game_data:
+        gameData,
+    })
+    .select(
+      'id, created_at, wallet, level, game_data',
+    )
     .single();
 
   if (error) {
-    console.error('[supabase] createNewPlayer error:', error.message);
+    console.error(
+      '[supabase] createNewPlayer:',
+      error.message,
+    );
+
     throw error;
   }
 
-  return mapPlayerRowToProfile(data as PlayerRow);
+  const savedGameData =
+    (data.game_data as StoredGameData) ??
+    gameData;
+
+  const savedProfile =
+    mapRowToProfile(
+      data,
+      savedGameData,
+    );
+
+  const fixedGameState:
+    GameState = {
+    ...gameState,
+
+    playerId:
+      savedProfile.id,
+  };
+
+  const finalGameData:
+    StoredGameData = {
+    ...savedGameData,
+
+    player:
+      savedProfile,
+
+    gameState:
+      fixedGameState,
+
+    land:
+      savedGameData.land ??
+      [],
+
+    savedAt:
+      now,
+  };
+
+  const {
+    error: updateError,
+  } = await supabase
+    .from('players')
+    .update({
+      game_data:
+        finalGameData,
+    })
+    .eq(
+      'id',
+      data.id,
+    );
+
+  if (updateError) {
+    console.error(
+      '[supabase] createNewPlayer update:',
+      updateError.message,
+    );
+
+    throw updateError;
+  }
+
+  return savedProfile;
 }
 
-export async function savePlayerData(payload: BackendSavePayload): Promise<void> {
-  // No crash if Supabase isn't configured – write to local storage.
+// ============================================================
+// SAVE EVERYTHING
+// ============================================================
+
+export async function savePlayerData(
+  payload: BackendSavePayload,
+): Promise<void> {
   if (!isSupabaseConfigured || !supabase) {
     warnIfNotConfigured();
+
     writeFallback(payload);
+
     return;
   }
 
-  // Ensure the wallet header matches the player being saved.
-  setWalletHeader(payload.player.walletAddress);
+  const wallet =
+    payload.player.walletAddress;
 
-  const { error: playerError } = await supabase
-    .from('players')
-    .update({
-      ...mapProfileToRow(payload.player),
-      game_state: payload.gameState,
-    })
-    .eq('id', payload.player.id);
-
-  if (playerError) {
-    console.error('[supabase] savePlayerData (players) error:', playerError.message);
-    throw playerError;
+  if (!wallet) {
+    throw new Error(
+      'Cannot save player without wallet.',
+    );
   }
 
-  const { error: saveError } = await supabase
-    .from('saves')
-    .upsert(
-      {
-        player_id: payload.player.id,
-        player_data: payload,
-        saved_at: payload.savedAt,
-      },
-      { onConflict: 'player_id' },
+  setWalletHeader(
+    wallet,
+  );
+
+  const now =
+    payload.savedAt ||
+    new Date().toISOString();
+
+  // ----------------------------------------------------------
+  // Read existing data first.
+  // This prevents economy / quests / other stored data
+  // from being deleted accidentally.
+  // ----------------------------------------------------------
+
+  const {
+    data: existing,
+    error: readError,
+  } = await supabase
+    .from('players')
+    .select(
+      'id, game_data',
+    )
+    .eq(
+      'wallet',
+      wallet,
+    )
+    .maybeSingle();
+
+  if (readError) {
+    console.error(
+      '[supabase] save read error:',
+      readError.message,
     );
 
-  if (saveError) {
-    console.error('[supabase] savePlayerData (saves) error:', saveError.message);
-    throw saveError;
+    throw readError;
+  }
+
+  const previousGameData:
+    StoredGameData =
+      (existing?.game_data as StoredGameData) ??
+      {};
+
+  // ----------------------------------------------------------
+  // IMPORTANT:
+  // Inventory is kept in BOTH places used by the project:
+  //
+  // player.inventory
+  // gameState.inventory
+  //
+  // This prevents items from disappearing when one system
+  // reads the player profile and another reads gameState.
+  // ----------------------------------------------------------
+
+  const inventory =
+    payload.gameState?.inventory ??
+    payload.player.inventory ??
+    [];
+
+  const playerToSave:
+    PlayerProfile = {
+    ...payload.player,
+
+    inventory,
+
+    land:
+      payload.land ??
+      payload.player.land ??
+      [],
+
+    lastSeenAt:
+      now,
+  };
+
+  const gameStateToSave:
+    GameState = {
+    ...payload.gameState,
+
+    inventory,
+  };
+
+  const mergedGameData:
+    StoredGameData = {
+    // Preserve everything already stored.
+    ...previousGameData,
+
+    // Save player.
+    player:
+      playerToSave,
+
+    // Save COMPLETE game state.
+    gameState:
+      gameStateToSave,
+
+    // Save land.
+    land:
+      payload.land ??
+      playerToSave.land ??
+      [],
+
+    // Save timestamp.
+    savedAt:
+      now,
+  };
+
+  // ----------------------------------------------------------
+  // INSERT
+  // ----------------------------------------------------------
+
+  if (!existing) {
+    const {
+      error,
+    } = await supabase
+      .from('players')
+      .insert({
+        wallet,
+
+        level:
+          playerToSave.level ?? 1,
+
+        game_data:
+          mergedGameData,
+      });
+
+    if (error) {
+      console.error(
+        '[supabase] save insert error:',
+        error.message,
+      );
+
+      throw error;
+    }
+
+    return;
+  }
+
+  // ----------------------------------------------------------
+  // UPDATE
+  // ----------------------------------------------------------
+
+  const {
+    error,
+  } = await supabase
+    .from('players')
+    .update({
+      wallet,
+
+      level:
+        playerToSave.level ?? 1,
+
+      game_data:
+        mergedGameData,
+    })
+    .eq(
+      'id',
+      existing.id,
+    );
+
+  if (error) {
+    console.error(
+      '[supabase] save update error:',
+      error.message,
+    );
+
+    throw error;
   }
 }
 
-export async function loadPlayerData(playerId: string): Promise<BackendSavePayload | null> {
-  // No crash if Supabase isn't configured – read from local storage.
+// ============================================================
+// LOAD EVERYTHING
+// ============================================================
+
+export async function loadPlayerData(
+  playerId: string,
+): Promise<BackendSavePayload | null> {
+  // ----------------------------------------------------------
+  // LOCAL
+  // ----------------------------------------------------------
+
   if (!isSupabaseConfigured || !supabase) {
     warnIfNotConfigured();
-    const stored = readFallback();
-    if (stored && stored.player.id === playerId) return stored;
+
+    const stored =
+      readFallback();
+
+    if (
+      stored &&
+      stored.player.id ===
+        playerId
+    ) {
+      return stored;
+    }
+
     return null;
   }
 
-  const { data, error } = await supabase
-    .from('saves')
-    .select('*')
-    .eq('player_id', playerId)
+  // ----------------------------------------------------------
+  // SUPABASE
+  // ----------------------------------------------------------
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('players')
+    .select(
+      'id, created_at, wallet, level, game_data',
+    )
+    .eq(
+      'id',
+      playerId,
+    )
     .maybeSingle();
 
   if (error) {
-    console.error('[supabase] loadPlayerData error:', error.message);
+    console.error(
+      '[supabase] loadPlayerData:',
+      error.message,
+    );
+
     throw error;
   }
 
   if (!data) {
-    const { data: playerRow, error: playerError } = await supabase
-      .from('players')
-      .select('*')
-      .eq('id', playerId)
-      .maybeSingle();
-
-    if (playerError) {
-      console.error('[supabase] loadPlayerData (players) error:', playerError.message);
-      throw playerError;
-    }
-
-    if (!playerRow) return null;
-    const profile = mapPlayerRowToProfile(playerRow as PlayerRow);
-
-    const gameStateFromRow = (playerRow as PlayerRow & { game_state?: unknown }).game_state;
-    const gameState = gameStateFromRow
-      ? (gameStateFromRow as GameState)
-      : FRESH_GAME_STATE(profile.id);
-
-    return {
-      player: profile,
-      gameState,
-      land: profile.land,
-      savedAt: profile.lastSeenAt,
-    };
+    return null;
   }
 
-  const saveRow = data as SaveRow;
-  return saveRow.player_data as BackendSavePayload;
+  const gameData:
+    StoredGameData =
+    (data.game_data as StoredGameData) ??
+    {};
+
+  const profile =
+    mapRowToProfile(
+      data,
+      gameData,
+    );
+
+  const savedGameState =
+    gameData.gameState ??
+    FRESH_GAME_STATE(
+      profile.id,
+    );
+
+  // ----------------------------------------------------------
+  // Make sure inventory survives regardless of which
+  // location the older save used.
+  // ----------------------------------------------------------
+
+  const inventory =
+    profile.inventory?.length
+      ? profile.inventory
+      : savedGameState.inventory ?? [];
+
+  const gameState:
+    GameState = {
+    ...savedGameState,
+
+    playerId:
+      profile.id,
+
+    inventory,
+  };
+
+  const land =
+    gameData.land ??
+    profile.land ??
+    [];
+
+  const loadedPlayer:
+    PlayerProfile = {
+    ...profile,
+
+    inventory,
+
+    land,
+  };
+
+  return {
+    player:
+      loadedPlayer,
+
+    gameState,
+
+    land,
+
+    savedAt:
+      gameData.savedAt ??
+      profile.lastSeenAt ??
+      data.created_at,
+  };
 }

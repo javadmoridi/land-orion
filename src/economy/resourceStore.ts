@@ -22,9 +22,9 @@ export interface PlayerResources {
 }
 
 export const STARTING_RESOURCES: PlayerResources = {
-  coins: 0,
-  tokens: 0,
-  gems: 0,
+  coins: 3333,
+  tokens: 222,
+  gems: 666,
 
   water: 0,
   air: 0,
@@ -49,8 +49,6 @@ export interface ResourceBackend {
 
 const supabaseResourceBackend: ResourceBackend = {
   async load() {
-    // Resources load from the player's Supabase economy row — never from
-    // browser storage, so they survive across devices.
     const eco = await getPlayerEco();
 
     if (!eco) {
@@ -63,15 +61,18 @@ const supabaseResourceBackend: ResourceBackend = {
       coins: Number(r.coins ?? 0),
       tokens: Number(r.tokens ?? 0),
       gems: Number(r.gems ?? 0),
+
       water: Number(r.water ?? 0),
       air: Number(r.air ?? 0),
       earth: Number(r.earth ?? 0),
       fire: Number(r.fire ?? 0),
+
       wood: Number(r.wood ?? 0),
       stone: Number(r.stone ?? 0),
       iron: Number(r.iron ?? 0),
       gold: Number(r.gold ?? 0),
       crystal: Number(r.crystal ?? 0),
+
       claimedQuestIds: eco.claimedQuestIds ?? [],
     };
   },
@@ -82,17 +83,21 @@ const supabaseResourceBackend: ResourceBackend = {
         coins: Number(data.coins ?? 0),
         tokens: Number(data.tokens ?? 0),
         gems: Number(data.gems ?? 0),
+
         water: Number(data.water ?? 0),
         air: Number(data.air ?? 0),
         earth: Number(data.earth ?? 0),
         fire: Number(data.fire ?? 0),
+
         wood: Number(data.wood ?? 0),
         stone: Number(data.stone ?? 0),
         iron: Number(data.iron ?? 0),
         gold: Number(data.gold ?? 0),
         crystal: Number(data.crystal ?? 0),
       },
-      claimedQuestIds: data.claimedQuestIds ?? [],
+
+      claimedQuestIds:
+        data.claimedQuestIds ?? [],
     });
   },
 };
@@ -489,7 +494,7 @@ export const useResourceStore =
       return get().resources[key];
     },
 
-         claimQuest: (questId) => {
+    claimQuest: (questId) => {
       const quest = QUESTS.find(
         (q) => q.id === questId,
       );
@@ -510,10 +515,6 @@ export const useResourceStore =
         return;
       }
 
-      // REAL consumption: the cost (what the character "takes")
-      // is deducted from the player's resources before the reward
-      // is granted. If anything is missing, the trade is aborted so
-      // nothing is created out of thin air.
       const cost =
         (quest.cost ?? {}) as Partial<PlayerResources>;
 
@@ -521,7 +522,9 @@ export const useResourceStore =
         get().resources;
 
       for (const _k in cost) {
-        const key = _k as keyof PlayerResources;
+        const key =
+          _k as keyof PlayerResources;
+
         const amount =
           Number(cost[key] ?? 0);
 
@@ -540,13 +543,16 @@ export const useResourceStore =
         };
 
         for (const _k in cost) {
-          const key = _k as keyof PlayerResources;
+          const key =
+            _k as keyof PlayerResources;
+
           const amount =
             Number(cost[key] ?? 0);
 
           if (amount > 0) {
             nextResources[key] =
-              (nextResources[key] ?? 0) - amount;
+              (nextResources[key] ?? 0) -
+              amount;
           }
         }
 
@@ -617,6 +623,9 @@ export const useResourceStore =
 
         wood: resources.wood,
         stone: resources.stone,
+        iron: resources.iron,
+        gold: resources.gold,
+        crystal: resources.crystal,
 
         food:
           useGameStore

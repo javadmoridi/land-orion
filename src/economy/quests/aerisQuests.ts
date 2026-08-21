@@ -1,29 +1,23 @@
-import type { Quest } from './types';
+import type { Quest } from './questTypes';
 
 export const AERIS_QUESTS: Quest[] = [
   {
     id: 'aeris-quest-01',
     characterId: 'aeris',
     day: 1,
-    title: 'Wind Gathering',
-    description: 'Collect 100 Air.',
+    title: 'Water Gathering',
+    description: 'Collect 100 Water.',
     condition: {
-      label: '100 Air',
-      test: (ctx) => ctx.air >= 100,
+      label: '100 Water',
+      test: (ctx) => ctx.water >= 100,
     },
     reward: {
       coins: 0,
-      tokens: 0.5,
+      tokens: 1,
       gems: 0,
-      water: 0,
-      air: 0,
-      earth: 0,
-      fire: 0,
-      wood: 0,
-      stone: 0,
-      iron: 0,
-      gold: 0,
-      crystal: 0,
+    },
+    cost: {
+      water: 100,
     },
   },
 
@@ -31,7 +25,7 @@ export const AERIS_QUESTS: Quest[] = [
     id: 'aeris-quest-02',
     characterId: 'aeris',
     day: 2,
-    title: 'Elemental Breeze',
+    title: 'Wind and Water',
     description: 'Collect 60 Air and 40 Water.',
     condition: {
       label: '60 Air + 40 Water',
@@ -41,17 +35,12 @@ export const AERIS_QUESTS: Quest[] = [
     },
     reward: {
       coins: 0,
-      tokens: 0.5,
+      tokens: 2,
       gems: 0,
-      water: 0,
-      air: 0,
-      earth: 0,
-      fire: 0,
-      wood: 0,
-      stone: 0,
-      iron: 0,
-      gold: 0,
-      crystal: 0,
+    },
+    cost: {
+      air: 60,
+      water: 40,
     },
   },
 
@@ -59,7 +48,7 @@ export const AERIS_QUESTS: Quest[] = [
     id: 'aeris-quest-03',
     characterId: 'aeris',
     day: 3,
-    title: 'Storm Elements',
+    title: 'Wind and Fire',
     description: 'Collect 50 Air and 50 Fire.',
     condition: {
       label: '50 Air + 50 Fire',
@@ -69,17 +58,12 @@ export const AERIS_QUESTS: Quest[] = [
     },
     reward: {
       coins: 0,
-      tokens: 0.5,
+      tokens: 2,
       gems: 0,
-      water: 0,
-      air: 0,
-      earth: 0,
-      fire: 0,
-      wood: 0,
-      stone: 0,
-      iron: 0,
-      gold: 0,
-      crystal: 0,
+    },
+    cost: {
+      air: 50,
+      fire: 50,
     },
   },
 
@@ -87,7 +71,7 @@ export const AERIS_QUESTS: Quest[] = [
     id: 'aeris-quest-04',
     characterId: 'aeris',
     day: 4,
-    title: 'Four Winds',
+    title: 'Four Elements',
     description: 'Collect 40 Air, 30 Water and 30 Earth.',
     condition: {
       label: '40 Air + 30 Water + 30 Earth',
@@ -98,17 +82,13 @@ export const AERIS_QUESTS: Quest[] = [
     },
     reward: {
       coins: 0,
-      tokens: 0.5,
+      tokens: 3,
       gems: 0,
-      water: 0,
-      air: 0,
-      earth: 0,
-      fire: 0,
-      wood: 0,
-      stone: 0,
-      iron: 0,
-      gold: 0,
-      crystal: 0,
+    },
+    cost: {
+      air: 40,
+      water: 30,
+      earth: 30,
     },
   },
 
@@ -126,17 +106,12 @@ export const AERIS_QUESTS: Quest[] = [
     },
     reward: {
       coins: 0,
-      tokens: 0.5,
+      tokens: 3,
       gems: 0,
-      water: 0,
-      air: 0,
-      earth: 0,
-      fire: 0,
-      wood: 0,
-      stone: 0,
-      iron: 0,
-      gold: 0,
-      crystal: 0,
+    },
+    cost: {
+      air: 75,
+      fire: 25,
     },
   },
 
@@ -154,17 +129,12 @@ export const AERIS_QUESTS: Quest[] = [
     },
     reward: {
       coins: 0,
-      tokens: 0.5,
+      tokens: 4,
       gems: 0,
-      water: 0,
-      air: 0,
-      earth: 0,
-      fire: 0,
-      wood: 0,
-      stone: 0,
-      iron: 0,
-      gold: 0,
-      crystal: 0,
+    },
+    cost: {
+      air: 80,
+      earth: 40,
     },
   },
 
@@ -172,7 +142,7 @@ export const AERIS_QUESTS: Quest[] = [
     id: 'aeris-quest-07',
     characterId: 'aeris',
     day: 7,
-    title: 'Sky Master',
+    title: 'Element Master',
     description: 'Collect 120 Air.',
     condition: {
       label: '120 Air',
@@ -180,17 +150,11 @@ export const AERIS_QUESTS: Quest[] = [
     },
     reward: {
       coins: 0,
-      tokens: 0.5,
+      tokens: 5,
       gems: 0,
-      water: 0,
-      air: 0,
-      earth: 0,
-      fire: 0,
-      wood: 0,
-      stone: 0,
-      iron: 0,
-      gold: 0,
-      crystal: 0,
+    },
+    cost: {
+      air: 120,
     },
   },
 ];
