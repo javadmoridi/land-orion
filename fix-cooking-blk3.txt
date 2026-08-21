@@ -1,0 +1,117 @@
+  const finishJob = (jobId: string) => {
+    updateJobs((current) =>
+      current.map((job) =>
+        job.id === jobId
+          ? {
+              ...job,
+              completed: true,
+              finishAt: Date.now(),
+            }
+          : job,
+      ),
+    );
+  };
+
+  /*
+   * A single ready dish moves onto the kitchen shelf
+   * (not the global inventory).
+   */
+  const collectJob = (jobId: string) => {
+    const job = jobs.find((item) => item.id === jobId);
+
+    if (!job) {
+      return;
+    }
+
+    if (
+      job.completed ||
+      Date.now() >= job.finishAt
+    ) {
+      setShelf((current) =>
+        current.some(
+          (existing) => existing.id === jobId,
+        )
+          ? current
+          : [...current, job],
+      );
+
+      updateJobs((current) =>
+        current.filter((item) => item.id !== jobId),
+      );
+    }
+  };
+
+  const quickCookJob = (jobId: string) => {
+    const job = jobs.find((item) => item.id === jobId);
+
+    if (!job) {
+      return;
+    }
+
+    /* queued dishes cannot be quick-cooked */
+    if (job.queued) {
+      return;
+    }
+
+    const remaining = getRemainingSeconds(job);
+
+    if (remaining <= 0) {
+      finishJob(jobId);
+      return;
+    }
+
+    const cost = getQuickCookCost(job);
+
+    if (!spendGems(cost)) {
+      setMessage('Not enough gems');
+      return;
+    }
+
+    setMessage(null);
+    finishJob(jobId);
+  };
+
+  /*
+   * Collect every ready dish at once (همه یک‌جا برداشت).
+   */
+  const collectAll = () => {
+    const readyIds = new Set(
+      jobs
+        .filter(
+          (job) =>
+            job.completed ||
+            Date.now() >= job.finishAt,
+        )
+        .map((job) => job.id),
+    );
+
+    if (readyIds.size === 0) {
+      return;
+    }
+
+    setShelf((current) => {
+      const incoming = jobs.filter(
+        (job) =>
+          (job.completed ||
+            Date.now() >= job.finishAt) &&
+          !current.some(
+            (existing) => existing.id === job.id,
+          ),
+      );
+
+      return [
+        ...current.filter(
+          (job) => !readyIds.has(job.id),
+        ),
+        ...incoming,
+      ];
+    });
+
+    updateJobs((current) =>
+      current.filter(
+        (job) =>
+          !job.completed &&
+          Date.now() < job.finishAt,
+      ),
+    );
+  };

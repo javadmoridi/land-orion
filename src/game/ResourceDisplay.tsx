@@ -84,10 +84,11 @@ export function ResourceDisplay() {
           <span style={{ color: '#c4b5fd' }}>{gems.toLocaleString()}</span>
           <button
             onClick={() => setGemsOpen(true)}
-            style={{ ...buyBtnStyle, background: 'rgba(138,92,245,0.35)' }}
-            title="Buy Gems with TON"
+            disabled
+            style={{ ...buyBtnStyle, background: 'rgba(138,92,245,0.35)', cursor: 'not-allowed', opacity: 0.6 }}
+            title="Currency purchase is currently locked"
           >
-            Buy
+            🔒 Buy
           </button>
         </div>
       </div>

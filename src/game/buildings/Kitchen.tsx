@@ -1,669 +1,421 @@
-import { useMemo, useState } from 'react';
-import { GRID_SIZE } from '../placementGridUtil';
-import { useGameStore } from '../gameStore';
+import { create } from 'zustand';
+
+import { useGameStore } from '../game/useGameStore';
+import { useResourceStore } from './resourceStore';
+import { useVipStore } from './vipStore';
+
 import {
-  FOOD_CATALOG,
+  getFoodById,
+  createFoodInventoryItem,
   type FoodDefinition,
-  type FoodMaterial,
-} from '../foodCatalog';
+} from './foodCatalog';
 
-const KITCHEN_IMAGE = '/assets/orion-kitchen.png';
+export interface CookingJob {
+  id: string;
+  foodId: string;
+  queuedAt: number;
+  startedAt: number | null;
+  finishAt: number | null;
+  completed: boolean;
+}
 
-const X = 5;
-const Y = 4;
+interface FoodCookingStoreState {
+  jobs: CookingJob[];
 
-const WIDTH = 10;
-const HEIGHT = 10;
+  cookFood: (food: FoodDefinition) => boolean;
+  quickCook: (jobId: string) => boolean;
+  collectFinishedFood: (jobId: string) => boolean;
 
-function getMaterialAmount(
-  material: FoodMaterial,
-  resources: Record<string, number>,
-  inventory: {
-    id: string;
-    quantity: number;
-  }[],
-): number {
-  if (material.type === 'resource') {
-    return resources[material.id] ?? 0;
+  getJob: (jobId: string) => CookingJob | undefined;
+  isFinished: (jobId: string) => boolean;
+
+  getRemainingSeconds: (jobId: string) => number;
+  getQuickCookCost: (timeMinutes: number) => number;
+
+  reset: () => void;
+}
+
+const STORAGE_KEY = 'land-orion-food-cooking';
+
+function loadJobs(): CookingJob[] {
+  if (typeof window === 'undefined') {
+    return [];
   }
 
-  return (
-    inventory.find(
-      (item) => item.id === material.id,
-    )?.quantity ?? 0
+  try {
+    const raw =
+      window.localStorage.getItem(STORAGE_KEY);
+
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed;
+  } catch {
+    return [];
+  }
+}
+
+function saveJobs(jobs: CookingJob[]) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify(jobs),
   );
 }
 
-function canCook(
+function getInventory() {
+  return (
+    useGameStore.getState().gameState?.inventory ??
+    useGameStore.getState().playerProfile?.inventory ??
+    []
+  );
+}
+
+function hasInventoryIngredient(
+  id: string,
+  quantity: number,
+) {
+  const item = getInventory().find(
+    (entry) => entry.id === id,
+  );
+
+  return !!item && item.quantity >= quantity;
+}
+
+function removeInventoryIngredient(
+  id: string,
+  quantity: number,
+) {
+  return useGameStore
+    .getState()
+    .removeFromInventory(id, quantity);
+}
+
+function getResourceAmount(id: string) {
+  const resources =
+    useResourceStore.getState().resources;
+
+  return (
+    resources[
+      id as keyof typeof resources
+    ] ?? 0
+  );
+}
+
+function hasResourceIngredient(
+  id: string,
+  quantity: number,
+) {
+  return getResourceAmount(id) >= quantity;
+}
+
+function removeResourceIngredient(
+  id: string,
+  quantity: number,
+) {
+  const store =
+    useResourceStore.getState();
+
+  switch (id) {
+    case 'wood':
+      return store.spendWood(quantity);
+
+    case 'stone':
+      return store.spendStone(quantity);
+
+    case 'iron':
+      return store.spendIron(quantity);
+
+    case 'gold':
+      return store.spendGold(quantity);
+
+    case 'crystal':
+      return store.spendCrystal(quantity);
+
+    default:
+      return useGameStore
+        .getState()
+        .spendResource(id, quantity);
+  }
+}
+function hasAllIngredients(
   food: FoodDefinition,
-  resources: Record<string, number>,
-  inventory: {
-    id: string;
-    quantity: number;
-  }[],
-): boolean {
+) {
   return food.ingredients.every(
     (ingredient) =>
-      getMaterialAmount(
-        ingredient,
-        resources,
-        inventory,
-      ) >= ingredient.quantity,
+      ingredient.type === 'inventory'
+        ? hasInventoryIngredient(
+            ingredient.id,
+            ingredient.quantity,
+          )
+        : hasResourceIngredient(
+            ingredient.id,
+            ingredient.quantity,
+          ),
   );
 }
 
-export function Kitchen() {
-  const [open, setOpen] = useState(false);
-  const [selectedFood, setSelectedFood] =
-    useState<FoodDefinition | null>(null);
-
-  const gameState = useGameStore(
-    (state) => state.gameState,
-  );
-
-  const spendResource = useGameStore(
-    (state) => state.spendResource,
-  );
-
-  const removeFromInventory =
-    useGameStore(
-      (state) => state.removeFromInventory,
-    );
-
-  const addToInventory = useGameStore(
-    (state) => state.addToInventory,
-  );
-
-  const resources =
-    gameState?.resources ?? {};
-
-  const inventory =
-    gameState?.inventory ?? [];
-
-  const foodsByLevel = useMemo(() => {
-    const grouped =
-      new Map<number, FoodDefinition[]>();
-
-    for (const food of FOOD_CATALOG) {
-      const list =
-        grouped.get(food.level) ?? [];
-
-      list.push(food);
-      grouped.set(food.level, list);
-    }
-
-    return Array.from(
-      grouped.entries(),
-    ).sort(
-      ([a], [b]) => a - b,
-    );
-  }, []);
-
-  const cookFood = (
-    food: FoodDefinition,
-  ) => {
-    if (
-      !canCook(
-        food,
-        resources,
-        inventory,
-      )
-    ) {
-      return;
-    }
-
-    for (const ingredient of food.ingredients) {
-      if (
-        ingredient.type ===
-        'resource'
-      ) {
-        const success =
-          spendResource(
+function removeAllIngredients(
+  food: FoodDefinition,
+) {
+  for (const ingredient of food.ingredients) {
+    const result =
+      ingredient.type === 'inventory'
+        ? removeInventoryIngredient(
+            ingredient.id,
+            ingredient.quantity,
+          )
+        : removeResourceIngredient(
             ingredient.id,
             ingredient.quantity,
           );
 
-        if (!success) {
-          return;
-        }
-      } else {
-        const success =
-          removeFromInventory(
-            ingredient.id,
-            ingredient.quantity,
-          );
-
-        if (!success) {
-          return;
-        }
-      }
+    if (!result) {
+      return false;
     }
+  }
 
-    addToInventory({
-      id: `food:${food.id}`,
-      name: food.name,
-      type: 'food',
-      quantity: 1,
-      rarity:
-        food.level >= 10
-          ? 'mythic'
-          : food.level >= 8
-            ? 'legendary'
-            : food.level >= 6
-              ? 'epic'
-              : food.level >= 4
-                ? 'rare'
-                : 'common',
-      image: food.image,
-    });
+  return true;
+}
 
-    setSelectedFood(null);
-  };
+export const useFoodCookingStore =
+  create<FoodCookingStoreState>(
+    (set, get) => ({
+      jobs: loadJobs(),
 
-  return (
-    <>
-      {/* ============================================================
-          KITCHEN BUILDING
-      ============================================================ */}
+      cookFood: (food) => {
+        const vip =
+          useVipStore
+            .getState()
+            .isVipActive();
 
-      <div
-        onClick={() => setOpen(true)}
-        style={{
-          position: 'absolute',
+        const maxQueue =
+          vip ? 5 : 1;
 
-          left: `${(X / GRID_SIZE) * 100}%`,
-          top: `${(Y / GRID_SIZE) * 100}%`,
+        const jobs =
+          get().jobs;
 
-          width: `${(WIDTH / GRID_SIZE) * 100}%`,
-          height: `${(HEIGHT / GRID_SIZE) * 100}%`,
+        if (jobs.length >= maxQueue) {
+          return false;
+        }
 
-          zIndex: 3,
-          cursor: 'pointer',
-        }}
-      >
-        <img
-          src={KITCHEN_IMAGE}
-          alt="Orion Kitchen"
-          draggable={false}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            imageRendering: 'pixelated',
-            display: 'block',
-          }}
-        />
-      </div>
+        if (!hasAllIngredients(food)) {
+          return false;
+        }
 
-      {/* ============================================================
-          KITCHEN WINDOW
-      ============================================================ */}
+        if (!removeAllIngredients(food)) {
+          return false;
+        }
 
-      {open && (
-        <div
-          onClick={() => setOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background:
-              'rgba(0,0,0,.78)',
-            zIndex: 1000,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20,
-            overflow: 'auto',
-          }}
-        >
-          <div
-            onClick={(e) =>
-              e.stopPropagation()
-            }
-            style={{
-              width: 'min(1100px, 96vw)',
-              maxHeight: '92vh',
-              overflow: 'auto',
-              background:
-                'linear-gradient(180deg, #241b16, #120e0c)',
-              color: 'white',
-              border:
-                '2px solid rgba(255,255,255,.15)',
-              borderRadius: 18,
-              padding: 24,
-              boxSizing: 'border-box',
-              boxShadow:
-                '0 20px 80px rgba(0,0,0,.6)',
-            }}
-          >
-            {/* HEADER */}
+        const now =
+          Date.now();
 
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent:
-                  'space-between',
-                gap: 20,
-                marginBottom: 20,
-              }}
-            >
-              <div>
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: 28,
-                  }}
-                >
-                  Orion Kitchen
-                </h2>
+        const newJob: CookingJob = {
+          id:
+            `cooking-${food.id}-${now}`,
 
-                <div
-                  style={{
-                    marginTop: 6,
-                    opacity: 0.7,
-                    fontSize: 14,
-                  }}
-                >
-                  Cook food using your
-                  resources and inventory.
-                </div>
-              </div>
+          foodId:
+            food.id,
 
-              <button
-                onClick={() =>
-                  setOpen(false)
-                }
-                style={{
-                  border: 0,
-                  background:
-                    'rgba(255,255,255,.1)',
-                  color: 'white',
-                  borderRadius: 10,
-                  padding:
-                    '10px 16px',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                }}
-              >
-                Close
-              </button>
-            </div>
+          queuedAt:
+            now,
 
-            {/* FOOD LIST */}
+          startedAt:
+            now,
 
-            {foodsByLevel.map(
-              ([level, foods]) => (
-                <div
-                  key={level}
-                  style={{
-                    marginBottom: 28,
-                  }}
-                >
-                  <h3
-                    style={{
-                      margin:
-                        '0 0 12px',
-                      fontSize: 20,
-                    }}
-                  >
-                    Level {level}
-                  </h3>
+          finishAt:
+            now +
+            food.timeMinutes * 60 * 1000,
 
-                  <div
-                    style={{
-                      display:
-                        'grid',
-                      gridTemplateColumns:
-                        'repeat(auto-fill, minmax(180px, 1fr))',
-                      gap: 14,
-                    }}
-                  >
-                    {foods.map(
-                      (food) => {
-                        const available =
-                          canCook(
-                            food,
-                            resources,
-                            inventory,
-                          );
+          completed:
+            false,
+        };
 
-                        return (
-                          <button
-                            key={
-                              food.id
-                            }
-                            onClick={() =>
-                              setSelectedFood(
-                                food,
-                              )
-                            }
-                            style={{
-                              border:
-                                '1px solid rgba(255,255,255,.12)',
-                              borderRadius: 14,
-                              background:
-                                available
-                                  ? 'rgba(255,255,255,.08)'
-                                  : 'rgba(255,255,255,.035)',
-                              color: 'white',
-                              padding: 12,
-                              cursor:
-                                'pointer',
-                              textAlign:
-                                'left',
-                              opacity:
-                                available
-                                  ? 1
-                                  : 0.55,
-                            }}
-                          >
-                            <img
-                              src={
-                                food.image
-                              }
-                              alt={
-                                food.name
-                              }
-                              draggable={
-                                false
-                              }
-                              style={{
-                                width:
-                                  '100%',
-                                height: 130,
-                                objectFit:
-                                  'contain',
-                                imageRendering:
-                                  'pixelated',
-                                display:
-                                  'block',
-                                marginBottom: 8,
-                              }}
-                            />
+        const updatedJobs = [
+          newJob,
+        ];
 
-                            <div
-                              style={{
-                                fontWeight:
-                                  800,
-                                fontSize: 15,
-                              }}
-                            >
-                              {
-                                food.name
-                              }
-                            </div>
+        saveJobs(updatedJobs);
 
-                            <div
-                              style={{
-                                marginTop: 4,
-                                fontSize: 12,
-                                opacity:
-                                  0.65,
-                              }}
-                            >
-                              XP:{' '}
-                              {
-                                food.xp
-                              }
-                            </div>
+        set({
+          jobs: updatedJobs,
+        });
 
-                            <div
-                              style={{
-                                marginTop: 8,
-                                fontSize: 12,
-                                color:
-                                  available
-                                    ? '#9cff9c'
-                                    : '#ff8f8f',
-                              }}
-                            >
-                              {available
-                                ? 'Ready to cook'
-                                : 'Missing ingredients'}
-                            </div>
-                          </button>
-                        );
-                      },
-                    )}
-                  </div>
-                </div>
+        return true;
+      },
+
+      quickCook: (jobId) => {
+        const job =
+          get().getJob(jobId);
+
+        if (!job) {
+          return false;
+        }
+
+        const remaining =
+          get()
+            .getRemainingSeconds(jobId);
+
+        if (remaining <= 0) {
+          return get()
+            .collectFinishedFood(jobId);
+        }
+
+        const cost =
+          get()
+            .getQuickCookCost(
+              Math.ceil(
+                remaining / 60,
               ),
-            )}
-          </div>
-        </div>
-      )}
+            );
 
-      {/* ============================================================
-          FOOD DETAILS / COOK WINDOW
-      ============================================================ */}
+        const spent =
+          useResourceStore
+            .getState()
+            .spendGems(cost);
 
-      {selectedFood && (
-        <div
-          onClick={() =>
-            setSelectedFood(null)
-          }
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background:
-              'rgba(0,0,0,.65)',
-            zIndex: 2000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent:
-              'center',
-            padding: 20,
-          }}
-        >
-          <div
-            onClick={(e) =>
-              e.stopPropagation()
-            }
-            style={{
-              width: 'min(500px, 94vw)',
-              background:
-                '#1d1714',
-              color: 'white',
-              borderRadius: 18,
-              padding: 24,
-              border:
-                '1px solid rgba(255,255,255,.15)',
-              boxShadow:
-                '0 20px 70px rgba(0,0,0,.7)',
-            }}
-          >
-            <img
-              src={
-                selectedFood.image
-              }
-              alt={
-                selectedFood.name
-              }
-              draggable={false}
-              style={{
-                width: '100%',
-                height: 220,
-                objectFit: 'contain',
-                imageRendering:
-                  'pixelated',
-                display: 'block',
-              }}
-            />
+        if (!spent) {
+          return false;
+        }
 
-            <h2
-              style={{
-                margin:
-                  '10px 0 4px',
-              }}
-            >
-              {
-                selectedFood.name
-              }
-            </h2>
-
-            <div
-              style={{
-                opacity: 0.7,
-                marginBottom: 18,
-              }}
-            >
-              Level{' '}
-              {
-                selectedFood.level
-              }{' '}
-              · XP{' '}
-              {
-                selectedFood.xp
-              }
-            </div>
-
-            <div
-              style={{
-                fontWeight: 700,
-                marginBottom: 10,
-              }}
-            >
-              Ingredients
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                flexDirection:
-                  'column',
-                gap: 8,
-                marginBottom: 20,
-              }}
-            >
-              {selectedFood.ingredients.map(
-                (ingredient) => {
-                  const amount =
-                    getMaterialAmount(
-                      ingredient,
-                      resources,
-                      inventory,
-                    );
-
-                  const enough =
-                    amount >=
-                    ingredient.quantity;
-
-                  return (
-                    <div
-                      key={
-                        ingredient.id
-                      }
-                      style={{
-                        display:
-                          'flex',
-                        alignItems:
-                          'center',
-                        justifyContent:
-                          'space-between',
-                        background:
-                          'rgba(255,255,255,.06)',
-                        borderRadius: 10,
-                        padding:
-                          '9px 12px',
-                      }}
-                    >
-                      <span>
-                        {
-                          ingredient.name
-                        }
-                      </span>
-
-                      <span
-                        style={{
-                          color:
-                            enough
-                              ? '#8dff8d'
-                              : '#ff8585',
-                          fontWeight:
-                            700,
-                        }}
-                      >
-                        {amount} /{' '}
-                        {
-                          ingredient.quantity
-                        }
-                      </span>
-                    </div>
-                  );
-                },
-              )}
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                gap: 10,
-              }}
-            >
-              <button
-                onClick={() =>
-                  setSelectedFood(
-                    null,
-                  )
+        const jobs =
+          get().jobs.map((item) =>
+            item.id === jobId
+              ? {
+                  ...item,
+                  finishAt:
+                    Date.now(),
                 }
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  border: 0,
-                  borderRadius: 10,
-                  background:
-                    'rgba(255,255,255,.1)',
-                  color: 'white',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
+              : item,
+          );
 
-              <button
-                onClick={() =>
-                  cookFood(
-                    selectedFood,
-                  )
-                }
-                disabled={
-                  !canCook(
-                    selectedFood,
-                    resources,
-                    inventory,
-                  )
-                }
-                style={{
-                  flex: 1,
-                  padding: 12,
-                  border: 0,
-                  borderRadius: 10,
-                  background:
-                    canCook(
-                      selectedFood,
-                      resources,
-                      inventory,
-                    )
-                      ? '#2e8b57'
-                      : '#555',
-                  color: 'white',
-                  cursor:
-                    canCook(
-                      selectedFood,
-                      resources,
-                      inventory,
-                    )
-                      ? 'pointer'
-                      : 'not-allowed',
-                  fontWeight: 800,
-                }}
-              >
-                Cook
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+        saveJobs(jobs);
+
+        set({
+          jobs,
+        });
+
+        return true;
+      },
+            collectFinishedFood: (jobId) => {
+        const job =
+          get().getJob(jobId);
+
+        if (!job) {
+          return false;
+        }
+
+        if (
+          job.finishAt === null ||
+          Date.now() < job.finishAt
+        ) {
+          return false;
+        }
+
+        const food =
+          getFoodById(
+            job.foodId,
+          );
+
+        if (!food) {
+          return false;
+        }
+
+        useGameStore
+          .getState()
+          .addToInventory(
+            createFoodInventoryItem(
+              food,
+              1,
+            ),
+          );
+
+        const jobs =
+          get().jobs.filter(
+            (item) =>
+              item.id !== jobId,
+          );
+
+        saveJobs(jobs);
+
+        set({
+          jobs,
+        });
+
+        return true;
+      },
+
+
+      getJob: (jobId) => {
+        return get()
+          .jobs
+          .find(
+            (job) =>
+              job.id === jobId,
+          );
+      },
+
+
+      isFinished: (jobId) => {
+        const job =
+          get().getJob(jobId);
+
+        return !!(
+          job &&
+          job.finishAt !== null &&
+          Date.now() >= job.finishAt
+        );
+      },
+
+
+      getRemainingSeconds: (jobId) => {
+        const job =
+          get().getJob(jobId);
+
+        if (
+          !job ||
+          job.finishAt === null
+        ) {
+          return 0;
+        }
+
+        return Math.max(
+          0,
+          Math.ceil(
+            (
+              job.finishAt -
+              Date.now()
+            ) / 1000,
+          ),
+        );
+      },
+
+
+      getQuickCookCost: (
+        timeMinutes,
+      ) => {
+        return Math.ceil(
+          timeMinutes / 5,
+        );
+      },
+
+
+      reset: () => {
+        saveJobs([]);
+
+        set({
+          jobs: [],
+        });
+      },
+    }),
   );
-}

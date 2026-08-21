@@ -221,9 +221,16 @@ export const useFarmStore = create<FarmState>(
 
       const fruit: InventoryItem = {
 
-        id: `fruit-${seed.id}`,
+        /*
+         * Use the canonical fruit id (e.g. `crystal-pear`) so the
+         * kitchen recipes can find and consume this fruit.
+         * Legacy ids like `fruit-seed-1` never matched any recipe
+         * ingredient and made cooking impossible.
+         */
+        id: seed.fruitId || `fruit-${seed.id}`,
 
         name:
+          seed.fruitName ||
           `${seed.name.replace(' Seed', '')} Fruit`,
 
         type: 'fruit',

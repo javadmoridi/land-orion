@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { useGemStore } from './gemStore';
+import { getPlayerEco, patchPlayerEco } from './playerApi';
 
 export interface VipTier {
   id: string;
@@ -49,52 +50,27 @@ interface VipBackend {
   save(data: VipSaveData): Promise<void>;
 }
 
-const LOCAL_STORAGE_KEY =
-  'land-orion-vip';
-
-const localVipBackend: VipBackend = {
+const supabaseVipBackend: VipBackend = {
   async load(): Promise<VipSaveData | null> {
-    if (
-      typeof window === 'undefined'
-    ) {
+    // VIP state loads from the player's Supabase economy row — never from
+    // browser storage, so it survives across devices.
+    const eco = await getPlayerEco();
+
+    if (!eco) {
       return null;
     }
 
-    const raw =
-      window.localStorage.getItem(
-        LOCAL_STORAGE_KEY
-      );
-
-    if (!raw) {
-      return null;
-    }
-
-    try {
-      const parsed =
-        JSON.parse(raw) as Partial<VipSaveData>;
-
-      return {
-        activeVip:
-          parsed.activeVip ?? null,
-      };
-    } catch {
-      return null;
-    }
+    return {
+      activeVip: eco.vip?.activeVip ?? null,
+    };
   },
 
-  async save(
-    data: VipSaveData
-  ): Promise<void> {
-    if (
-      typeof window === 'undefined'
-    ) {
-      return;
-    }
-
-    window.localStorage.setItem(
-      LOCAL_STORAGE_KEY,
-      JSON.stringify(data)
-    );
+  async save(data: VipSaveData): Promise<void> {
+    await patchPlayerEco({
+      vip: {
+        activeVip: data.activeVip,
+      },
+    });
   },
 };
 
@@ -102,6 +78,8 @@ interface VipStoreState {
   activeVip: ActiveVip | null;
 
   backend: VipBackend;
+
+  initialized: boolean;
 
   lastPurchase:
     | {
@@ -142,7 +120,9 @@ export const useVipStore =
       activeVip: null,
 
       backend:
-        localVipBackend,
+        supabaseVipBackend,
+
+      initialized: false,
 
       lastPurchase: null,
 
@@ -151,6 +131,12 @@ export const useVipStore =
       // ================================================================
 
       initialize: async () => {
+        if (get().initialized) {
+          return;
+        }
+
+        set({ initialized: true });
+
         const data =
           await get().backend.load();
 

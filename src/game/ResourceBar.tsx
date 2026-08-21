@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
-import { useTonConnectUI } from '@tonconnect/ui-react';
 
 import { useResourceStore } from '../economy/resourceStore';
 import {
@@ -8,10 +7,7 @@ import {
   MIN_GEM_PURCHASE,
   gemsToTon,
 } from '../economy/gemStore';
-
-import {
-  sendGemPaymentAndVerify,
-} from '../economy/tonVerificationService';
+import type { GemPaymentResult } from '../economy/tonVerificationService';
 
 import { CurrencyIcon } from './currencyIcons';
 import { InventoryPanel } from './InventoryPanel';
@@ -67,9 +63,6 @@ function fmt(n: number): string {
 }
 
 export function ResourceBar() {
-  const [tonConnectUI] =
-    useTonConnectUI();
-
   const {
     resources,
     addCoins,
@@ -84,7 +77,6 @@ export function ResourceBar() {
     gems,
     spendGems,
     purchaseGems,
-    buying,
   } =
     useGemStore(
       (s) => s
@@ -316,11 +308,18 @@ export function ResourceBar() {
     const success =
       await purchaseGems(
         n,
-        (requestedGems) =>
-          sendGemPaymentAndVerify(
-            tonConnectUI,
-            requestedGems
-          )
+        async () => {
+          // Currency purchase is currently locked — no payment is sent.
+          const result: GemPaymentResult = {
+            confirmed: false,
+            reason: 'Currency purchase is temporarily locked.',
+            gems: 0,
+            tonAmount: 0,
+            usdAmount: 0,
+            tonPrice: { usd: 0 },
+          };
+          return result;
+        }
       );
 
     if (
@@ -707,7 +706,8 @@ export function ResourceBar() {
 
             <button
               type="button"
-              disabled={buying}
+              disabled
+              title="Currency purchase is currently locked"
               onClick={() =>
                 void doBuy(
                   buyMode
@@ -721,26 +721,16 @@ export function ResourceBar() {
                 border: 'none',
                 borderRadius: 10,
                 background:
-                  buying
-                    ? 'rgba(255,255,255,.08)'
-                    : '#22c55e',
+                  '#22c55e',
                 color:
-                  buying
-                    ? '#777'
-                    : '#04130a',
+                  '#04130a',
                 cursor:
-                  buying
-                    ? 'not-allowed'
-                    : 'pointer',
+                  'not-allowed',
+                opacity: 0.55,
                 fontWeight: 900,
               }}
             >
-              {buying
-                ? 'PROCESSING...'
-                : buyMode ===
-                  'gems'
-                ? 'BUY GEMS'
-                : 'CONFIRM'}
+              🔒 PURCHASE LOCKED
             </button>
 
             <button

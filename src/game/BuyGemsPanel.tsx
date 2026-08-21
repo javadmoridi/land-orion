@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useTonConnectUI } from '@tonconnect/ui-react';
 import type { CSSProperties } from 'react';
 
 import {
@@ -12,10 +11,7 @@ import {
   calcTonAmountForGems,
 } from '../economy/tonPriceService';
 
-import {
-  sendGemPaymentAndVerify,
-  TON_RECEIVER_ADDRESS,
-} from '../economy/tonVerificationService';
+import type { GemPaymentResult } from '../economy/tonVerificationService';
 
 interface BuyGemsPanelProps {
   open: boolean;
@@ -27,10 +23,7 @@ export function BuyGemsPanel({
   onClose,
 }: BuyGemsPanelProps) {
 
-  const [tonConnectUI] = useTonConnectUI();
-
   const gems = useGemStore((s) => s.gems);
-  const buying = useGemStore((s) => s.buying);
   const lastPurchase = useGemStore((s) => s.lastPurchase);
   const purchaseGems = useGemStore((s) => s.purchaseGems);
 
@@ -56,11 +49,17 @@ export function BuyGemsPanel({
 
     await purchaseGems(
       pkg.gems,
-      async (gemsToBuy) => {
-        return sendGemPaymentAndVerify(
-          tonConnectUI,
-          gemsToBuy,
-        );
+      async () => {
+        // Currency purchase is currently locked — no payment is sent.
+        const result: GemPaymentResult = {
+          confirmed: false,
+          reason: 'Currency purchase is temporarily locked.',
+          gems: 0,
+          tonAmount: 0,
+          usdAmount: 0,
+          tonPrice: { usd: 0 },
+        };
+        return result;
       }
     );
   }
@@ -132,6 +131,22 @@ export function BuyGemsPanel({
           1 Gem = 0.01 TON
         </p>
 
+        <div
+          style={{
+            marginBottom:'0.8rem',
+            padding:'0.6rem 0.8rem',
+            borderRadius:10,
+            background:'rgba(255,80,80,0.12)',
+            border:'1px solid rgba(255,80,80,0.35)',
+            color:'#ffb3b3',
+            fontSize:'0.8rem',
+            fontWeight:700,
+            textAlign:'center',
+          }}
+        >
+          🔒 Currency purchase is temporarily locked. Please check back later.
+        </div>
+
 
         <div
           style={{
@@ -180,23 +195,20 @@ export function BuyGemsPanel({
 
 
                 <button
-                  disabled={buying}
+                  disabled
                   onClick={() => handleBuy(pkg)}
+                  title="Currency purchase is currently locked"
                   style={{
                     background:'#8a5cf5',
                     color:'#fff',
                     border:'none',
                     borderRadius:8,
                     padding:'0.45rem 0.8rem',
-                    cursor:'pointer',
+                    cursor:'not-allowed',
+                    opacity:0.6,
                   }}
                 >
-                  {
-                    buying &&
-                    selected?.id === pkg.id
-                    ? 'Paying...'
-                    : 'Buy'
-                  }
+                  🔒 Buy
                 </button>
 
               </div>
@@ -237,12 +249,10 @@ export function BuyGemsPanel({
             marginTop:'1rem',
             fontSize:'0.7rem',
             color:'#6b7c99',
-            wordBreak:'break-all',
+            textAlign:'center',
           }}
         >
-          TON receive address:
-          {' '}
-          {TON_RECEIVER_ADDRESS}
+          🔒 Gem purchases are temporarily unavailable. Please check back later.
         </p>
 
 

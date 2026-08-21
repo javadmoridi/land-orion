@@ -20,7 +20,6 @@ interface Props {
 export function EggShop({ x = 0, y = 4 }: Props) {
   const [open, setOpen] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
-  const [message, setMessage] = useState('');
 
   const tokens = useResourceStore(
     (s) => s.resources.tokens
@@ -48,14 +47,6 @@ export function EggShop({ x = 0, y = 4 }: Props) {
       };
 
       addToInventory(item);
-
-      setMessage(
-        `🥚 ${egg.name} added`
-      );
-    } else {
-      setMessage(
-        `❌ Not enough TOKEN - need ${total}, have ${tokens}`
-      );
     }
   }
 
@@ -71,11 +62,6 @@ export function EggShop({ x = 0, y = 4 }: Props) {
 
   return (
     <>
-      {/* =========================================================
-          EGG SHOP BUILDING
-          فقط روی لایه زمین قرار دارد
-         ========================================================= */}
-
       <div
         onClick={() => setOpen(true)}
         style={{
@@ -87,10 +73,6 @@ export function EggShop({ x = 0, y = 4 }: Props) {
           width: `${(WIDTH / GRID_SIZE) * 100}%`,
           height: `${(HEIGHT / GRID_SIZE) * 100}%`,
 
-          /*
-           * مهم:
-           * خود ساختمان نباید z-index خیلی بالا داشته باشد.
-           */
           zIndex: 3,
 
           cursor: 'pointer',
@@ -134,9 +116,6 @@ export function EggShop({ x = 0, y = 4 }: Props) {
         )}
       </div>
 
-      {/* =========================================================
-          EGG SHOP MODAL
-         ========================================================= */}
 
       {open && (
         <div
@@ -147,10 +126,6 @@ export function EggShop({ x = 0, y = 4 }: Props) {
 
             background: 'rgba(0,0,0,.6)',
 
-            /*
-             * این z-index فقط برای پنجره بازشونده است.
-             * ساختمان خودش z-index:3 دارد.
-             */
             zIndex: 100,
 
             display: 'flex',
@@ -164,33 +139,39 @@ export function EggShop({ x = 0, y = 4 }: Props) {
             onClick={(e) => e.stopPropagation()}
             style={{
               width: 'min(720px,95%)',
+
               maxHeight: '88vh',
 
               overflowY: 'auto',
 
-              background: '#0d0f16',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
 
-              border: '2px solid #ff9e60',
-              borderRadius: 16,
+              background: '#2e0736',
+
+              border: '2px solid #070707',
+
+              borderRadius: 100,
 
               padding: '1.25rem',
 
               color: 'white',
             }}
           >
-            {/* HEADER */}
 
             <div
               style={{
+                position: 'relative',
                 display: 'flex',
-                justifyContent: 'space-between',
+                justifyContent: 'center',
                 alignItems: 'center',
+                width: '100%',
               }}
             >
               <h2
                 style={{
                   margin: 0,
-                  color: '#ffd700',
+                  color: '#e4dfdf',
                 }}
               >
                 Egg Shop
@@ -199,20 +180,42 @@ export function EggShop({ x = 0, y = 4 }: Props) {
               <button
                 onClick={() => setOpen(false)}
                 style={{
+                  position: 'absolute',
+                  right: 30,
+                  top: 20,
+                  width: 50,
+                  height: 50,
+
+                  borderRadius: '50%',
+
+                  border: 'none',
+
+                  background: '#f70909',
+
+                  color: '#fffdfd',
+
+                  fontSize: 22,
+
+                  fontWeight: 'bold',
+
                   cursor: 'pointer',
+
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+
+                  boxShadow:
+                    '0 0 30px rgb(135, 255, 111)',
                 }}
               >
                 ✕
               </button>
-            </div>
-
-            {/* TOKEN BALANCE */}
-
-            <div
+            </div>            <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
+
                 marginTop: 15,
                 marginBottom: 15,
               }}
@@ -220,9 +223,12 @@ export function EggShop({ x = 0, y = 4 }: Props) {
               <img
                 src={TOKEN_IMAGE}
                 alt="Token"
-                width={22}
-                height={22}
+
+                width={50}
+                height={50}
+
                 draggable={false}
+
                 style={{
                   objectFit: 'contain',
                   imageRendering: 'pixelated',
@@ -238,14 +244,13 @@ export function EggShop({ x = 0, y = 4 }: Props) {
               </strong>
             </div>
 
-            {/* EGGS */}
 
             <div
               style={{
                 display: 'grid',
 
                 gridTemplateColumns:
-                  'repeat(auto-fill,minmax(180px,1fr))',
+                  'repeat(2, 1fr)',
 
                 gap: 12,
               }}
@@ -264,33 +269,36 @@ export function EggShop({ x = 0, y = 4 }: Props) {
                     key={egg.id}
                     style={{
                       background:
-                        'rgba(255,255,255,.05)',
+                        'rgba(253,7,7,0.05)',
 
                       border:
                         '1px solid rgba(255,255,255,.1)',
 
-                      borderRadius: 10,
+                      borderRadius: 80,
 
-                      padding: 10,
+                      padding: 30,
 
                       textAlign: 'center',
                     }}
                   >
-                    {/* EGG IMAGE */}
 
                     <img
                       src={egg.image}
+
                       alt={egg.name}
-                      width={60}
-                      height={60}
+
+                      width={160}
+
+                      height={160}
+
                       draggable={false}
+
                       style={{
                         objectFit: 'contain',
                         imageRendering: 'pixelated',
                       }}
                     />
 
-                    {/* NAME */}
 
                     <div
                       style={{
@@ -301,7 +309,6 @@ export function EggShop({ x = 0, y = 4 }: Props) {
                       {egg.name}
                     </div>
 
-                    {/* TOKEN PRICE */}
 
                     <div
                       style={{
@@ -316,10 +323,15 @@ export function EggShop({ x = 0, y = 4 }: Props) {
                     >
                       <img
                         src={TOKEN_IMAGE}
+
                         alt="Token"
+
                         width={18}
+
                         height={18}
+
                         draggable={false}
+
                         style={{
                           objectFit: 'contain',
                           imageRendering: 'pixelated',
@@ -331,7 +343,6 @@ export function EggShop({ x = 0, y = 4 }: Props) {
                       </span>
                     </div>
 
-                    {/* RARITY */}
 
                     <div
                       style={{
@@ -341,7 +352,6 @@ export function EggShop({ x = 0, y = 4 }: Props) {
                       {RARITY_LABEL[egg.rarity]}
                     </div>
 
-                    {/* HATCH TIME */}
 
                     <div
                       style={{
@@ -354,28 +364,30 @@ export function EggShop({ x = 0, y = 4 }: Props) {
                       {formatHatchTime(ticks)}
                     </div>
 
-                    {/* BUY */}
 
                     <button
                       onClick={() => buy(egg)}
+
                       disabled={!canBuy}
+
                       style={{
                         width: '100%',
 
                         marginTop: 10,
 
-                        padding: '7px 10px',
+                        padding: '10px',
 
                         border: 'none',
-                        borderRadius: 6,
+
+                        borderRadius: 100,
 
                         background: canBuy
-                          ? '#ff9e60'
-                          : '#555',
+                          ? '#23fdd9'
+                          : '#eb0f0f',
 
                         color: '#0d0f16',
 
-                        fontWeight: 700,
+                        fontWeight: 800,
 
                         cursor: canBuy
                           ? 'pointer'
@@ -384,48 +396,12 @@ export function EggShop({ x = 0, y = 4 }: Props) {
                     >
                       Buy
                     </button>
+
                   </div>
                 );
               })}
             </div>
 
-            {/* MESSAGE */}
-
-            {message && (
-              <div
-                style={{
-                  marginTop: 15,
-
-                  padding: 10,
-
-                  borderRadius: 8,
-
-                  background:
-                    message.startsWith('❌')
-                      ? 'rgba(255,80,80,.15)'
-                      : 'rgba(46,160,67,.15)',
-
-                  color:
-                    message.startsWith('❌')
-                      ? '#ff8080'
-                      : '#90ee90',
-                }}
-              >
-                {message}
-              </div>
-            )}
-
-            {/* CLOSE */}
-
-            <button
-              onClick={() => setOpen(false)}
-              style={{
-                marginTop: 15,
-                cursor: 'pointer',
-              }}
-            >
-              Close
-            </button>
           </div>
         </div>
       )}

@@ -187,3 +187,139 @@ create policy "payments_update_own"
   with check (
     wallet_address = current_setting('request.headers', true)::jsonb ->> 'x-wallet-address'
   );
+
+-- ============================================
+-- PLAYER ECONOMY (Gems / Coins / VIP) + REFERRALS
+-- ============================================
+-- The currencies (Gems & Coins), VIP state, referral code and welcome flag all
+-- live on the players row. The app writes them through the same RLS-protected
+-- row the player already owns, so nothing is stored in the browser.
+
+alter table public.players
+  add column if not exists eco_state jsonb not null default '{}'::jsonb;
+
+alter table public.players
+  add column if not exists referral_code text;
+
+alter table public.players
+  add column if not exists referred_by text;
+
+alter table public.players
+  add column if not exists welcome_claimed boolean not null default false;
+
+create unique index if not exists players_referral_code_key
+  on public.players (referral_code)
+  where referral_code is not null;
+
+create index if not exists players_referred_by_idx
+  on public.players (referred_by);
+
+-- ---------- referral code generator ----------
+create or replace function public.generate_ref_code()
+returns text
+language sql
+as $$
+  select upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
+$$;
+
+-- ============================================
+-- claim_login_rewards (SECURITY DEFINER)
+-- Called by the client after a wallet connects. Grants the 100 Gem welcome
+-- reward (once per player) and, when a valid referral code is provided,
+-- records the referral and credits 50 Gems to the REFERRER.
+--
+-- Security: the function verifies the current request wallet header matches
+-- the passed wallet, so a user can only claim for themselves. It runs with
+-- definer rights so it can also credit the referrer's row.
+-- ============================================
+create or replace function public.claim_login_rewards(
+  p_wallet text,
+  p_referral_code text default ''
+)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  header_wallet text;
+  v_player public.players%rowtype;
+  v_referrer_id text;
+  v_welcome_gems integer := 100;
+  v_referral_gems integer := 50;
+  v_welcome_granted boolean := false;
+  v_referral_granted boolean := false;
+begin
+  header_wallet := coalesce(
+    current_setting('request.headers', true)::jsonb ->> 'x-wallet-address',
+    ''
+  );
+
+  -- A user may only claim for themselves.
+  if header_wallet <> p_wallet then
+    return json_build_object('ok', false, 'reason', 'wallet_mismatch');
+  end if;
+
+  select * into v_player from public.players where wallet_address = p_wallet;
+
+  if v_player.id is null then
+    return json_build_object('ok', false, 'reason', 'player_not_found');
+  end if;
+
+  -- Ensure every player has a personal referral code.
+  if v_player.referral_code is null or v_player.referral_code = '' then
+    update public.players
+      set referral_code = public.generate_ref_code()
+      where id = v_player.id;
+  end if;
+
+  -- Welcome reward (100 gems) — only once per player.
+  if not coalesce(v_player.welcome_claimed, false) then
+    update public.players
+      set eco_state = jsonb_set(
+            coalesce(eco_state, '{}'::jsonb),
+            '{gems}',
+            to_jsonb(coalesce((eco_state->>'gems')::numeric, 0) + v_welcome_gems)
+          ),
+          welcome_claimed = true
+      where id = v_player.id;
+
+    v_welcome_granted := true;
+  end if;
+
+  -- Referral: record who referred this player and reward the referrer once.
+  if p_referral_code <> ''
+     and (v_player.referred_by is null or v_player.referred_by = '') then
+    select id into v_referrer_id
+      from public.players
+      where referral_code = p_referral_code
+        and id <> v_player.id
+      limit 1;
+
+    if v_referrer_id is not null then
+      update public.players
+        set referred_by = p_referral_code
+        where id = v_player.id;
+
+      update public.players
+        set eco_state = jsonb_set(
+              coalesce(eco_state, '{}'::jsonb),
+              '{gems}',
+              to_jsonb(coalesce((eco_state->>'gems')::numeric, 0) + v_referral_gems)
+            )
+        where id = v_referrer_id;
+
+      v_referral_granted := true;
+    end if;
+  end if;
+
+  return json_build_object(
+    'ok', true,
+    'welcomeGems', case when v_welcome_granted then v_welcome_gems else 0 end,
+    'referralGems', case when v_referral_granted then v_referral_gems else 0 end,
+    'referred', v_referral_granted
+  );
+end $$;
+
+revoke execute on function public.claim_login_rewards(text, text) from public;
+grant execute on function public.claim_login_rewards(text, text) to anon;

@@ -14,6 +14,17 @@ import {
   useVipStore,
 } from '../economy/vipStore';
 
+import { useGameStore } from './useGameStore';
+import {
+  getMyReferralCode,
+  setPlayerUsername,
+} from '../economy/playerApi';
+import {
+  TonConnectButton,
+  useTonAddress,
+} from '@tonconnect/ui-react';
+import { formatWalletAddress } from '../wallet/walletService';
+
 interface VipPanelProps {
   open: boolean;
   onClose: () => void;
@@ -96,6 +107,69 @@ export function VipPanel({
     useVipStore(
       (s) => s.lastPurchase
     );
+
+  const username =
+    useGameStore(
+      (s) => s.playerProfile?.username ?? ''
+    );
+
+  const walletAddress =
+    useGameStore(
+      (s) => s.playerProfile?.walletAddress ?? null
+    );
+
+  const bindWallet =
+    useGameStore(
+      (s) => s.bindWallet
+    );
+
+  const tonAddress = useTonAddress();
+  const isWalletConnected = Boolean(tonAddress);
+  const [walletStatus, setWalletStatus] =
+    useState<string | null>(null);
+
+  const [nameValue, setNameValue] =
+    useState(username);
+
+  const [nameSaved, setNameSaved] =
+    useState(false);
+
+  const [myReferralCode, setMyReferralCode] =
+    useState<string | null>(null);
+
+  const [refCopied, setRefCopied] =
+    useState(false);
+
+  useEffect(() => {
+    if (open && myReferralCode === null) {
+      void getMyReferralCode().then((code) => {
+        if (code) setMyReferralCode(code);
+      });
+    }
+  }, [open, myReferralCode]);
+
+  // When a TON wallet is connected in the VIP panel, rebind this account so
+  // the name, progress & items are saved under the wallet address.
+  useEffect(() => {
+    if (
+      !open ||
+      !isWalletConnected ||
+      !tonAddress ||
+      walletStatus === 'bound'
+    ) {
+      return;
+    }
+
+    if (walletAddress === tonAddress) {
+      setWalletStatus('bound');
+      return;
+    }
+
+    setWalletStatus('binding');
+    void bindWallet(tonAddress).then(() => {
+      setWalletStatus('bound');
+    });
+  }, [open, isWalletConnected, tonAddress, walletAddress, bindWallet, walletStatus]);
 
   const [
     now,
@@ -253,6 +327,305 @@ export function VipPanel({
           >
             X
           </button>
+        </div>
+
+        {/* NAME & REFERRAL (progress is saved under this name) */}
+
+        <div
+          style={{
+            marginBottom: 18,
+            padding: 16,
+            borderRadius: 12,
+            background:
+              'rgba(255,215,0,.05)',
+            border:
+              '1px solid rgba(255,215,0,.18)',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '0.8rem',
+              fontWeight: 900,
+              color: '#ffd700',
+              marginBottom: 8,
+            }}
+          >
+            PLAYER PROFILE
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              value={nameValue}
+              onChange={(event) => {
+                setNameValue(event.target.value);
+                setNameSaved(false);
+              }}
+              placeholder="Player Name"
+              maxLength={20}
+              style={{
+                flex: 1,
+                padding: '0.5rem 0.7rem',
+                borderRadius: 8,
+                border:
+                  '1px solid rgba(255,255,255,.2)',
+                background:
+                  'rgba(0,0,0,.35)',
+                color: '#fff',
+                fontSize: '0.9rem',
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={() => {
+                if (!nameValue.trim()) return;
+                void setPlayerUsername(nameValue).then((ok) => {
+                  setNameSaved(ok);
+                  if (ok) setNameValue(nameValue.trim());
+                });
+              }}
+              style={{
+                border: 'none',
+                borderRadius: 8,
+                padding: '0.5rem 0.9rem',
+                background: '#ffd700',
+                color: '#0b1220',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              Save
+            </button>
+          </div>
+
+          {nameSaved && (
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: '0.72rem',
+                color: '#86efac',
+              }}
+            >
+              ✅ Name saved. Your progress is now tied to "{nameValue}".
+            </div>
+          )}
+
+          {/* DIRECT INVITE LINK — shareable URL with referral code */}
+          {myReferralCode && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: '0.6rem',
+                borderRadius: 8,
+                background: 'rgba(79,124,255,.08)',
+                border: '1px solid rgba(79,124,255,.25)',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '0.68rem',
+                  color: '#9fb0d0',
+                  marginBottom: 4,
+                }}
+              >
+                Direct invite link (share to earn 50 💎 per friend)
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 6,
+                  alignItems: 'center',
+                }}
+              >
+                <code
+                  style={{
+                    flex: 1,
+                    padding: '0.4rem 0.5rem',
+                    borderRadius: 6,
+                    background: 'rgba(0,0,0,.35)',
+                    color: '#a78bfa',
+                    fontSize: '0.75rem',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {`${window.location.origin}/?ref=${myReferralCode}`}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const link = `${window.location.origin}/?ref=${myReferralCode}`;
+                    void navigator.clipboard
+                      ?.writeText(link)
+                      .then(() => {
+                        setRefCopied(true);
+                        setTimeout(() => setRefCopied(false), 2000);
+                      });
+                  }}
+                  style={{
+                    border: 'none',
+                    borderRadius: 6,
+                    padding: '0.4rem 0.7rem',
+                    background: 'rgba(138,92,245,.3)',
+                    color: '#e9d5ff',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    fontSize: '0.7rem',
+                  }}
+                >
+                  {refCopied ? '✓' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          )}
+
+
+          <div
+            style={{
+              marginTop: 14,
+              fontSize: '0.72rem',
+              color: '#9fb0d0',
+            }}
+          >
+            INVITE A FRIEND (Referral)
+          </div>
+
+          {myReferralCode ? (
+            <div
+              style={{
+                marginTop: 6,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <code
+                style={{
+                  flex: 1,
+                  padding: '0.5rem 0.6rem',
+                  borderRadius: 8,
+                  background: 'rgba(255,255,255,.06)',
+                  border: '1px solid rgba(255,255,255,.15)',
+                  color: '#a78bfa',
+                  fontWeight: 900,
+                  letterSpacing: '0.1em',
+                  textAlign: 'center',
+                  fontSize: '0.9rem',
+                }}
+              >
+                {myReferralCode}
+              </code>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const link = `${window.location.origin}/?ref=${myReferralCode}`;
+                  void navigator.clipboard
+                    ?.writeText(link)
+                    .then(() => {
+                      setRefCopied(true);
+                      setTimeout(() => setRefCopied(false), 2000);
+                    });
+                }}
+                style={{
+                  border: 'none',
+                  borderRadius: 8,
+                  padding: '0.5rem 0.7rem',
+                  background: 'rgba(138,92,245,.3)',
+                  color: '#e9d5ff',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                {refCopied ? 'Copied ✓' : 'Share'}
+              </button>
+            </div>
+          ) : (
+            <div style={{ marginTop: 6, fontSize: '0.72rem', color: '#6b7c99' }}>
+              Loading referral code…
+            </div>
+          )}
+
+          <div style={{ marginTop: 8, fontSize: '0.7rem', color: '#6b7c99' }}>
+            Friends joining with your link each give you a 50 💎 bonus.
+          </div>
+        </div>
+
+        {/* CONNECT WALLET — progress & items are saved under name + wallet */}
+
+        <div
+          style={{
+            marginBottom: 18,
+            padding: 16,
+            borderRadius: 12,
+            background: 'rgba(138,92,245,.06)',
+            border: '1px solid rgba(138,92,245,.25)',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '0.8rem',
+              fontWeight: 900,
+              color: '#a78bfa',
+              marginBottom: 8,
+            }}
+          >
+            CONNECT WALLET (TON)
+          </div>
+
+          {walletAddress && (
+            <div
+              style={{
+                marginBottom: 10,
+                fontSize: '0.72rem',
+                color: '#9fb0d0',
+                wordBreak: 'break-all',
+              }}
+            >
+              Saved under:
+              <br />
+              <strong style={{ color: '#e9d5ff' }}>
+                {formatWalletAddress(walletAddress)}
+              </strong>
+              <br />
+              <span style={{ color: '#86efac' }}>
+                Name & progress are stored under this account.
+              </span>
+            </div>
+          )}
+
+          {walletStatus === 'bound' ? (
+            <div
+              style={{
+                padding: '0.5rem',
+                borderRadius: 8,
+                background: 'rgba(34,197,94,.12)',
+                border: '1px solid rgba(34,197,94,.35)',
+                color: '#86efac',
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                textAlign: 'center',
+              }}
+            >
+              ✅ Wallet linked — progress & items now save under your wallet.
+            </div>
+          ) : (
+            <>
+              <div style={{ marginBottom: 6 }}>
+                <TonConnectButton />
+              </div>
+
+              {walletStatus === 'binding' ? (
+                <div style={{ fontSize: '0.72rem', color: '#a78bfa' }}>
+                  Linking wallet… migrating progress & items.
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.7rem', color: '#6b7c99' }}>
+                  Connect your TON wallet so your name, progress and items are
+                  permanently saved under your wallet address.
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* ACTIVE VIP */}

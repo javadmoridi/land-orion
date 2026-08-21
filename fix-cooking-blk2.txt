@@ -1,0 +1,123 @@
+
+  /*
+   * Sequential (ترتیفی) production: every tick, when the active
+   * dish is finished it becomes ready and the next queued dish
+   * automatically starts cooking.
+   */
+  useEffect(() => {
+    if (
+      activeJob &&
+      !activeJob.completed &&
+      Date.now() >= activeJob.finishAt
+    ) {
+      updateJobs((current) =>
+        current.map((job) => {
+          if (job.id === activeJob.id) {
+            return {
+              ...job,
+              completed: true,
+            };
+          }
+
+          if (job.queued && !job.completed) {
+            const food = getFoodById(job.foodId);
+            const minutes = food
+              ? getFoodCookMinutes(food)
+              : 0;
+            const now = Date.now();
+
+            return {
+              ...job,
+              queued: false,
+              startedAt: now,
+              finishAt: now + minutes * 60_000,
+            };
+          }
+
+          return job;
+        }),
+      );
+    }
+  }, [jobs, tick]);
+
+  const cookFood = (food: FoodDefinition) => {
+    setMessage(null);
+
+    if (!canCook(food, resources, inventory)) {
+      setMessage('Not enough ingredients');
+      return;
+    }
+
+    if (pendingCount >= QUEUE_LIMIT) {
+      if (isVip) {
+        setMessage('Queue full (5)');
+      } else {
+        setMessage('Unlock VIP to queue more foods');
+      }
+      return;
+    }
+
+    /*
+     * First check every ingredient so materials are never
+     * partially consumed if something is missing.
+     */
+    for (const ingredient of food.ingredients) {
+      const amount = getMaterialAmount(
+        ingredient,
+        resources,
+        inventory,
+      );
+
+      if (amount < ingredient.quantity) {
+        setMessage('Not enough ingredients');
+        return;
+      }
+    }
+
+    /*
+     * Consume the ingredients.
+     */
+    for (const ingredient of food.ingredients) {
+      if (ingredient.type === 'resource') {
+        const success = spendResource(
+          ingredient.id,
+          ingredient.quantity,
+        );
+
+        if (!success) {
+          return;
+        }
+      } else {
+        const success = removeFromInventory(
+          ingredient.id,
+          ingredient.quantity,
+        );
+
+        if (!success) {
+          return;
+        }
+      }
+    }
+
+    const hasActive = !!activeJob;
+    const minutes = getFoodCookMinutes(food);
+    const now = Date.now();
+
+    updateJobs((current) => [
+      ...current,
+      {
+        id: `cook-${now}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+        foodId: food.id,
+        startedAt: hasActive ? 0 : now,
+        finishAt: hasActive
+          ? 0
+          : now + minutes * 60_000,
+        completed: false,
+        queued: hasActive,
+      },
+    ]);
+
+    setSelectedFood(null);
+  };

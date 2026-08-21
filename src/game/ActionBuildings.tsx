@@ -63,6 +63,14 @@ const MINER_IMAGE =
 
 const MINER_MAX_LEVEL = 100;
 
+/**
+ * The miner can only be claimed once per full 3-hour cycle.
+ * At level L it extracts `L` of every element per hour, so a full
+ * cycle yields `L * 3` of each element (at level 100 -> 300 each).
+ */
+const MINER_CYCLE_MS =
+  3 * 60 * 60 * 1000;
+
 const MINER_STORAGE_KEY =
   'land-orion-miner-state';
 
@@ -205,6 +213,15 @@ function minerRate(
   );
 }
 
+// Per-second production: the miner level is the hourly yield, so the
+// per-second rate is level / 3600. At level 100 that is 0.027777...
+// items/s, which produces exactly 300 of every element per 3h cycle.
+function minerRatePerSecond(
+  level: number
+): number {
+  return minerRate(level) / 3600;
+}
+
 interface MinerYield {
   water: number;
   air: number;
@@ -217,6 +234,9 @@ interface MinerYield {
   newFracFire: number;
 
   elapsedMs: number;
+
+  /** Number of complete 3-hour cycles since the last claim. */
+  cycles: number;
 }
 
 function calcMinerYield(
@@ -233,38 +253,33 @@ function calcMinerYield(
     now - lastCollectedAt
   );
 
-  const elapsedHours =
-    elapsedMs / 3600000;
+  const ratePerSecond =
+    minerRatePerSecond(level);
 
-  const rate = minerRate(level);
+  // Produce continuously, second by second, carrying the leftover
+  // fraction forward so the total is exact (no drift).
+  const produced =
+    (elapsedMs / 1000) * ratePerSecond;
 
   const totalWater =
-    fractionalWater +
-    rate * elapsedHours;
-
+    fractionalWater + produced;
   const totalAir =
-    fractionalAir +
-    rate * elapsedHours;
-
+    fractionalAir + produced;
   const totalEarth =
-    fractionalEarth +
-    rate * elapsedHours;
-
+    fractionalEarth + produced;
   const totalFire =
-    fractionalFire +
-    rate * elapsedHours;
+    fractionalFire + produced;
 
-  const water =
-    Math.floor(totalWater);
+  const water = Math.floor(totalWater);
+  const air = Math.floor(totalAir);
+  const earth = Math.floor(totalEarth);
+  const fire = Math.floor(totalFire);
 
-  const air =
-    Math.floor(totalAir);
-
-  const earth =
-    Math.floor(totalEarth);
-
-  const fire =
-    Math.floor(totalFire);
+  // One claim is allowed per full 3-hour cycle, but the accrued
+  // amount now ticks up live (level 100 reaches 300 at the 3h mark).
+  const cycles = Math.floor(
+    elapsedMs / MINER_CYCLE_MS
+  );
 
   return {
     water,
@@ -272,19 +287,13 @@ function calcMinerYield(
     earth,
     fire,
 
-    newFracWater:
-      totalWater - water,
-
-    newFracAir:
-      totalAir - air,
-
-    newFracEarth:
-      totalEarth - earth,
-
-    newFracFire:
-      totalFire - fire,
+    newFracWater: totalWater - water,
+    newFracAir: totalAir - air,
+    newFracEarth: totalEarth - earth,
+    newFracFire: totalFire - fire,
 
     elapsedMs,
+    cycles,
   };
 }
 
@@ -386,10 +395,8 @@ export function Miner({
   );
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
-
+    // Always tick so the countdown stays live even when the
+    // miner modal is closed (badge on the building updates too).
     const timer =
       window.setInterval(() => {
         setNow(Date.now());
@@ -397,7 +404,7 @@ export function Miner({
 
     return () =>
       window.clearInterval(timer);
-  }, [open]);
+  }, []);
 
   const yieldData =
     calcMinerYield(
@@ -430,10 +437,7 @@ export function Miner({
     MINER_MAX_LEVEL;
 
   const productionReady =
-    yieldData.water > 0 ||
-    yieldData.air > 0 ||
-    yieldData.earth > 0 ||
-    yieldData.fire > 0;
+    yieldData.cycles >= 1;
 
   const displayAmount =
     Math.max(
@@ -443,29 +447,19 @@ export function Miner({
       yieldData.fire
     );
 
+  // Amount produced per element per full 3-hour cycle.
   const cycleReward =
-    rate;
+    rate * 3;
 
-  const remainingToNextUnit =
-    rate > 0
-      ? Math.max(
-          0,
-          (
-            1 -
-            Math.min(
-              0.999999,
-              minerData.fractionalWater
-            )
-          ) /
-            rate *
-            3600000
-        )
-      : 0;
+  // Real-time countdown to the next claimable cycle.
+  const elapsedProgress =
+    yieldData.elapsedMs % MINER_CYCLE_MS;
 
   const remainingMs =
     productionReady
       ? 0
-      : remainingToNextUnit;
+      : MINER_CYCLE_MS -
+        elapsedProgress;
 
   function collectMiner() {
     const collected =
@@ -480,10 +474,11 @@ export function Miner({
       );
 
     if (
-      collected.water <= 0 &&
-      collected.air <= 0 &&
-      collected.earth <= 0 &&
-      collected.fire <= 0
+      collected.cycles < 1 ||
+      (collected.water <= 0 &&
+        collected.air <= 0 &&
+        collected.earth <= 0 &&
+        collected.fire <= 0)
     ) {
       setMessage(
         'No resources are ready to collect yet.'
@@ -631,6 +626,40 @@ export function Miner({
         size={9}
         onClick={openMiner}
       />
+
+      {/* Live countdown badge floating above the miner */}
+      <div
+        style={{
+          position: 'absolute',
+          left: `${(x / GRID_SIZE) * 100}%`,
+          top: `${(y / GRID_SIZE) * 100}%`,
+          transform: 'translate(-55%, -112%)',
+          zIndex: 7,
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          style={{
+            background: productionReady
+              ? 'linear-gradient(135deg,#22c55e,#16a34a)'
+              : 'rgba(8,8,10,.82)',
+            color: '#fff',
+            padding: '3px 10px',
+            borderRadius: 12,
+            fontSize: '.74rem',
+            fontWeight: 800,
+            whiteSpace: 'nowrap',
+            border:
+              '1px solid rgba(255,255,255,.3)',
+            boxShadow:
+              '0 4px 14px rgba(0,0,0,.55)',
+          }}
+        >
+          {productionReady
+            ? '✓ 3H CLAIM'
+            : `⛏ ${formatClock(remainingMs)}`}
+        </div>
+      </div>
 
       {open && (
         <div
@@ -871,9 +900,9 @@ export function Miner({
                         '0.78rem',
                     }}
                   >
-                    Production: {rate}{' '}
-                    of each element
-                    per hour
+                    Production: {rate}/h · {' '}
+                    {(rate / 3600).toFixed(4)}/s · {cycleReward}
+                    per 3h
                   </div>
                 </div>
 
@@ -894,7 +923,7 @@ export function Miner({
                     }}
                   >
                     {productionReady
-                      ? 'READY TO COLLECT'
+                      ? 'CLAIM READY'
                       : 'MINING'}
                   </div>
 
@@ -908,8 +937,8 @@ export function Miner({
                     }}
                   >
                     {productionReady
-                      ? 'Resources available'
-                      : `Next resource: ${formatClock(
+                      ? '3-hour claim ready'
+                      : `Next claim: ${formatClock(
                           remainingMs
                         )}`}
                   </div>
@@ -958,7 +987,8 @@ export function Miner({
                     '0.95rem',
                 }}
               >
-                COLLECT
+                COLLECT 3H · ×{displayAmount}{' '}
+                each
               </button>
             </div>
 

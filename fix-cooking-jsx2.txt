@@ -1,0 +1,127 @@
+                          {!job.queued && ready && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                collectJob(job.id)
+                              }
+                              style={{
+                                borderRadius:
+                                  999,
+                                border: 'none',
+                                padding:
+                                  '3px 10px',
+                                background:
+                                  '#16a34a',
+                                color: 'white',
+                                fontSize: 10,
+                                fontWeight: 800,
+                                cursor:
+                                  'pointer',
+                              }}
+                            >
+                              Collect
+                            </button>
+                          )}
+
+                          {!job.queued && !ready && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                quickCookJob(job.id)
+                              }
+                              disabled={
+                                gems <
+                                getQuickCookCost(
+                                  job,
+                                )
+                              }
+                              style={{
+                                borderRadius:
+                                  999,
+                                border: 'none',
+                                padding:
+                                  '3px 10px',
+                                background:
+                                  gems >=
+                                  getQuickCookCost(
+                                    job,
+                                  )
+                                    ? '#7444d8'
+                                    : '#4a4250',
+                                color: 'white',
+                                fontSize: 10,
+                                fontWeight: 800,
+                                cursor:
+                                  'pointer',
+                              }}
+                            >
+                              \u25C6 rush
+                            </button>
+                          )}
+
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color:
+                                '#93c5fd',
+                              whiteSpace:
+                                'nowrap',
+                            }}
+                          >
+                            {label}
+                          </span>
+                        </div>
+                      );
+                    }),
+                    ...Array.from(
+                      {
+                        length:
+                          locked,
+                      },
+                      (_, i) => (
+                        <div
+                          key={`lock-${i}`}
+                          style={{
+                            height: 40,
+                            borderRadius:
+                              999,
+                            border:
+                              '1px dashed rgba(255,255,255,.12)',
+                            background: isVip
+                              ? 'rgba(255,255,255,.03)'
+                              : 'rgba(0,0,0,.3)',
+                            cursor: isVip
+                              ? 'default'
+                              : 'not-allowed',
+                          }}
+                        />
+                      ),
+                    ),
+                  ];
+                })()}
+              </div>
+
+              {message && (
+                <div
+                  style={{
+                    color:
+                      '#f59e0b',
+                    fontSize: 11,
+                    marginTop: 6,
+                  }}
+                >
+                  {message}
+                </div>
+              )}
+
+              <div
+                style={{
+                  fontSize: 11,
+                  color: '#9ca3af',
+                  marginTop: 6,
+                }}
+              >
+                Shelf: {shelf.length} dish(es)
+              </div>
+            </div>
+

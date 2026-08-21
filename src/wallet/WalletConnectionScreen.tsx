@@ -1,7 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { TonConnectButton, useTonAddress, useTonWallet, useIsConnectionRestored, useTonConnectUI } from '@tonconnect/ui-react';
 import { useGameStore } from '../game/useGameStore';
 import { createWalletSession, formatWalletAddress } from './walletService';
+
+import { useGemStore } from '../economy/gemStore';
+import { useResourceStore } from '../economy/resourceStore';
+import { useVipStore } from '../economy/vipStore';
+import {
+  claimLoginRewards,
+  getReferralCodeFromUrl,
+} from '../economy/playerApi';
 
 declare global {
   interface Window {
@@ -35,6 +43,12 @@ export function WalletConnectionScreen() {
 
   const { connectWallet, wallet: session, connectionStatus, error } = useGameStore();
 
+  const [referralCode, setReferralCode] = useState(
+    () => getReferralCodeFromUrl()
+  );
+
+  const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
+
   // Telegram Mini App support: notify Telegram that the web app is ready and expand.
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -61,8 +75,31 @@ export function WalletConnectionScreen() {
     if (!address) return;
 
     const walletSession = createWalletSession(address);
-    void connectWallet(walletSession);
-  }, [connectionRestored, wallet, userFriendlyAddress, rawAddress, connectWallet]);
+    void (async () => {
+      await connectWallet(walletSession);
+
+      // Initialise the economy stores once the wallet identity is known.
+      await useGemStore.getState().initialize();
+      await useResourceStore.getState().initialize();
+      await useVipStore.getState().initialize();
+
+      // Grant the 100 Gem welcome reward (once) + record any referral.
+      const reward = await claimLoginRewards(referralCode);
+      if (reward.welcomeGems > 0) {
+        useGemStore.getState().addGems(reward.welcomeGems);
+        useResourceStore.getState().addGems(reward.welcomeGems);
+        setWelcomeMessage(
+          `🎁 Welcome! +${reward.welcomeGems} 💎 added.`
+        );
+      }
+
+      if (reward.referralGems > 0) {
+        setWelcomeMessage(
+          `🎁 Welcome! +${reward.welcomeGems} 💎 + referral bonus.`
+        );
+      }
+    })();
+  }, [connectionRestored, wallet, userFriendlyAddress, rawAddress, connectWallet, referralCode]);
 
   if (!connectionRestored) {
     return (
@@ -118,9 +155,67 @@ export function WalletConnectionScreen() {
           Enter the world of Orion
         </p>
 
+        <label
+          htmlFor="referral-code"
+          style={{
+            display: 'block',
+            textAlign: 'left',
+            color: '#9fb0d0',
+            fontSize: '0.78rem',
+            marginBottom: '0.3rem',
+          }}
+        >
+          Referral code (optional)
+        </label>
+
+        <input
+          id="referral-code"
+          value={referralCode}
+          onChange={(event) =>
+            setReferralCode(event.target.value.toUpperCase())
+          }
+          placeholder="e.g. ABC12345"
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            padding: '0.6rem 0.8rem',
+            borderRadius: 10,
+            border: '1px solid rgba(79,124,255,0.4)',
+            background: 'rgba(255,255,255,0.06)',
+            color: '#fff',
+            fontSize: '0.9rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.15em',
+            textAlign: 'center',
+            marginBottom: '0.4rem',
+          }}
+        />
+
+        <p style={{ margin: '0 0 0.4rem', fontSize: '0.72rem', color: '#6b7c99' }}>
+          Join with a friend's code to unlock a referral bonus. Every new player
+          receives 100 💎 on first login.
+        </p>
+
         <div style={{ margin: '2rem 0', display: 'flex', justifyContent: 'center' }}>
           <TonConnectButton />
         </div>
+
+        {welcomeMessage && (
+          <div
+            style={{
+              marginBottom: '0.8rem',
+              padding: '0.6rem',
+              borderRadius: 10,
+              background: 'rgba(46,160,67,0.15)',
+              border: '1px solid rgba(46,160,67,0.4)',
+              color: '#4cd07d',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+            }}
+          >
+            {welcomeMessage}
+          </div>
+        )}
 
         {connectionStatus === 'connecting' && (
           <p style={{ color: '#8fb5ff' }}>Connecting wallet... searching player profile in Supabase.</p>

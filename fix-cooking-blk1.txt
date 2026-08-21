@@ -1,0 +1,76 @@
+  const isVip = useVipStore(
+    (state) => state.isVipActive()
+  );
+
+  /**
+   * VIP players may queue 5 foods; non-VIP only 1 (sequential).
+   */
+  const QUEUE_LIMIT =
+    isVip ? 5 : 1;
+
+  const [jobs, setJobs] = useState<CookingJob[]>(
+    loadCookingJobs,
+  );
+
+  /*
+   * Finished dishes sit on the kitchen shelf — they are NOT pushed
+   * into the global inventory (غذا توی ایونتوری نمی‌آید).
+   */
+  const [shelf, setShelf] = useState<CookingJob[]>(
+    [],
+  );
+
+  const [tick, forceTick] = useState(0);
+  const [message, setMessage] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      forceTick((value) => value + 1);
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const updateJobs = (
+    updater: (current: CookingJob[]) => CookingJob[],
+  ) => {
+    setJobs((current) => {
+      const next = updater(current);
+      saveCookingJobs(next);
+      return next;
+    });
+  };
+
+  /* ---- derived view of the queue ---- */
+  const activeJob = jobs.find(
+    (job) => !job.queued && !job.completed,
+  );
+  const queuedJobs = jobs.filter(
+    (job) => job.queued && !job.completed,
+  );
+  const readyJobs = jobs.filter(
+    (job) => job.completed,
+  );
+      const pendingCount = jobs.filter(
+    (job) => !job.completed,
+  ).length;
+
+  /* ---- catalog of all cookable foods grouped by rarity ---- */
+  const foodsByRarity = useMemo(() => {
+    const grouped = new Map<FoodRarity, FoodDefinition[]>();
+
+    for (const food of FOOD_CATALOG) {
+      const list = grouped.get(food.rarity) ?? [];
+      list.push(food);
+      grouped.set(food.rarity, list);
+    }
+
+    return RARITY_ORDER.filter((rarity) =>
+      grouped.has(rarity),
+    ).map((rarity) => [rarity, grouped.get(rarity)!]);
+  }, []);
+

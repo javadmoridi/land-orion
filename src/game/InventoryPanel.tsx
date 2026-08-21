@@ -10,6 +10,10 @@ const RESOURCE_IMAGES: Record<string, string> = {
   iron: '/assets/iron.png',
   gold: '/assets/gold.png',
   crystal: '/assets/crystal.png',
+  water: '/assets/orion-element-water.png',
+  air: '/assets/orion-element-air.png',
+  earth: '/assets/orion-element-earth.png',
+  fire: '/assets/orion-element-fire.png',
 };
 
 interface InvRow {
@@ -243,6 +247,34 @@ export function InventoryPanel({
    * REAL RESOURCE INVENTORY
    */
   const resources: InvRow[] = [
+    {
+      id: 'water',
+      name: 'Water',
+      quantity: Number(playerResources?.water ?? 0),
+      image: RESOURCE_IMAGES.water,
+    },
+
+    {
+      id: 'air',
+      name: 'Wind',
+      quantity: Number(playerResources?.air ?? 0),
+      image: RESOURCE_IMAGES.air,
+    },
+
+    {
+      id: 'earth',
+      name: 'Earth',
+      quantity: Number(playerResources?.earth ?? 0),
+      image: RESOURCE_IMAGES.earth,
+    },
+
+    {
+      id: 'fire',
+      name: 'Fire',
+      quantity: Number(playerResources?.fire ?? 0),
+      image: RESOURCE_IMAGES.fire,
+    },
+
     {
       id: 'wood',
       name: 'Wood',

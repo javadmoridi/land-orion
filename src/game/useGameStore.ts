@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 
 import type {
   BackendSavePayload,
@@ -16,6 +16,11 @@ import {
 } from '../backend/supabaseService';
 
 import type { ConnectionStatus } from '../wallet/walletService';
+import { createWalletSession } from '../wallet/walletService';
+
+import { migrateEconomyToWallet } from '../economy/playerApi';
+
+import { normalizeFruitInventory } from './seedCatalog';
 
 export interface PlayerPosition {
   x: number;
@@ -44,8 +49,18 @@ interface LocalGameSave {
   savedAt: string;
 }
 
-const LOCAL_GAME_STORAGE_KEY =
-  'land-orion-game-save';
+// Identical to the guest id used by the entry screen. Each player gets their
+// own save key, so every person's progress & items are stored separately.
+const GUEST_ID_KEY = 'land-orion-guest-id';
+
+/**
+ * LocalStorage key scoped to a specific account (player id). This guarantees
+ * that progress/items of one person are never mixed with (or lost by) another
+ * person's save â€” each identity has its own slot.
+ */
+function saveKeyFor(profileId: string): string {
+  return `land-orion-save-${profileId}`;
+}
 
 function createWorldTiles(): WorldTile[] {
   const tiles: WorldTile[] = [];
@@ -131,7 +146,9 @@ function createFreshGameState(
   };
 }
 
-function loadLocalGameSave(): LocalGameSave | null {
+function loadLocalGameSave(
+  profileId: string
+): LocalGameSave | null {
   if (
     typeof window === 'undefined'
   ) {
@@ -140,7 +157,7 @@ function loadLocalGameSave(): LocalGameSave | null {
 
   const raw =
     window.localStorage.getItem(
-      LOCAL_GAME_STORAGE_KEY
+      saveKeyFor(profileId)
     );
 
   if (!raw) {
@@ -153,10 +170,26 @@ function loadLocalGameSave(): LocalGameSave | null {
 
     return {
       playerProfile:
-        parsed.playerProfile ?? null,
+        parsed.playerProfile
+          ? {
+              ...parsed.playerProfile,
+              inventory:
+                normalizeFruitInventory(
+                  parsed.playerProfile.inventory ?? [],
+                ),
+            }
+          : null,
 
       gameState:
-        parsed.gameState ?? null,
+        parsed.gameState
+          ? {
+              ...parsed.gameState,
+              inventory:
+                normalizeFruitInventory(
+                  parsed.gameState.inventory ?? [],
+                ),
+            }
+          : null,
 
       playerPosition:
         parsed.playerPosition ?? {
@@ -182,6 +215,7 @@ function loadLocalGameSave(): LocalGameSave | null {
 }
 
 function writeLocalGameSave(
+  profileId: string,
   save: LocalGameSave
 ): void {
   if (
@@ -191,13 +225,41 @@ function writeLocalGameSave(
   }
 
   window.localStorage.setItem(
-    LOCAL_GAME_STORAGE_KEY,
+    saveKeyFor(profileId),
     JSON.stringify(save)
   );
 }
 
+/**
+ * Before a real identity is known (first run), fall back to the guest id that
+ * the entry screen stores, so a returning guest immediately sees their save.
+ */
+function detectInitialProfileId(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const guestId =
+    window.localStorage.getItem(
+      GUEST_ID_KEY
+    );
+
+  if (!guestId) {
+    return null;
+  }
+
+  return `player-${guestId}`;
+}
+
+const initialProfileId =
+  detectInitialProfileId();
+
 const initialLocalSave =
-  loadLocalGameSave();
+  initialProfileId
+    ? loadLocalGameSave(
+        initialProfileId
+      )
+    : null;
 
 interface GameStoreState {
   wallet: WalletSession | null;
@@ -241,7 +303,33 @@ interface GameStoreState {
     session: WalletSession
   ) => Promise<void>;
 
-  disconnectWallet: () => void;
+  /**
+   * Re-binds the current account (name + progress + items) to a TON wallet
+   * address. Call this when the player connects a wallet in the VIP section so
+   * everything keeps saving under the name + wallet address.
+   */
+  bindWallet: (
+    walletAddress: string
+  ) => Promise<void>;
+
+    disconnectWallet: () => void;
+
+  /**
+   * Updates the in-memory player profile (e.g. after setting a name or
+   * binding a wallet) without requiring a full game load.
+   */
+  setPlayerProfile: (
+    profile: PlayerProfile | null
+  ) => void;
+
+  /**
+   * Attempts to load a previously saved game (from Supabase or local
+   * storage) associated with the given player name. Returns true when a
+   * saved game was found and applied, false otherwise.
+   */
+  loadGameByName: (
+    name: string
+  ) => Promise<boolean>;
 
   saveGame: () => Promise<void>;
 
@@ -409,21 +497,24 @@ export const useGameStore =
                 now,
             });
 
-            writeLocalGameSave({
-              playerProfile:
-                newProfile,
+            writeLocalGameSave(
+              newProfile.id,
+              {
+                playerProfile:
+                  newProfile,
 
-              gameState:
-                newGameState,
+                gameState:
+                  newGameState,
 
-              playerPosition:
-                get().playerPosition,
+                playerPosition:
+                  get().playerPosition,
 
-              worldTiles:
-                get().worldTiles,
+                worldTiles:
+                  get().worldTiles,
 
-              savedAt: now,
-            });
+                savedAt: now,
+              }
+            );
 
             await savePlayerData({
               player: {
@@ -461,6 +552,192 @@ export const useGameStore =
             });
           }
         },
+
+      // ================================================================
+      // BIND WALLET
+      // Re-binds the current account (name + progress + items) to a TON
+      // wallet address, so everything keeps saving under name + wallet.
+      // ================================================================
+
+      bindWallet:
+        async (walletAddress) => {
+          const {
+            playerProfile,
+            gameState,
+          } = get();
+
+          if (!playerProfile) {
+            return;
+          }
+
+          const now =
+            new Date().toISOString();
+
+          const newId =
+            `player-${walletAddress}`;
+
+          const newProfile:
+            PlayerProfile = {
+              ...playerProfile,
+              id: newId,
+              walletAddress,
+              lastSeenAt: now,
+            };
+
+          const newGameState:
+            GameState = gameState
+              ? {
+                  ...gameState,
+                  playerId: newId,
+                }
+              : createFreshGameState(
+                  newId
+                );
+
+          // Migrate the local save to the wallet-scoped key.
+          writeLocalGameSave(
+            newId,
+            {
+              playerProfile:
+                newProfile,
+
+              gameState:
+                newGameState,
+
+              playerPosition:
+                get().playerPosition,
+
+              worldTiles:
+                get().worldTiles,
+
+              savedAt: now,
+            }
+          );
+
+          set({
+            wallet: createWalletSession(
+              walletAddress
+            ),
+
+            playerProfile:
+              newProfile,
+
+            gameState:
+              newGameState,
+
+            connectionStatus:
+              'connected',
+
+            isConnected: true,
+
+            saveStatus:
+              'saved',
+
+            lastSavedAt: now,
+
+            error: null,
+          });
+
+          // Server-side sync (best-effort):
+          // 1. Migrate gems/currency/VIP (eco_state) to the new wallet.
+          // 2. Ensure the player row exists and save the game under the wallet.
+          try {
+            await migrateEconomyToWallet(
+              walletAddress
+            );
+
+            await createNewPlayer(
+              walletAddress
+            ).catch(() => {
+              /* row may already exist */
+            });
+
+            await savePlayerData({
+              player:
+                newProfile,
+
+              gameState:
+                newGameState,
+
+              land: newProfile.land,
+
+              savedAt: now,
+            });
+          } catch (err) {
+            console.error(
+              '[BindWallet] server sync error:',
+              err
+            );
+          }
+        },
+
+            // ================================================================
+      // SET PLAYER PROFILE
+      // ================================================================
+
+      setPlayerProfile: (profile) => {
+        set({
+          playerProfile: profile,
+        });
+      },
+
+      // ================================================================
+      // LOAD GAME BY NAME
+      // ================================================================
+
+      loadGameByName: async (name) => {
+        const trimmed = name.trim();
+        if (!trimmed) {
+          return false;
+        }
+
+        const localSave = loadLocalGameSave(`name-${trimmed}`);
+        if (localSave) {
+          set({
+            playerProfile: localSave.playerProfile,
+            gameState: localSave.gameState,
+            playerPosition: localSave.playerPosition ?? {
+              x: 5,
+              y: 5,
+            },
+            worldTiles: localSave.worldTiles ?? createWorldTiles(),
+            saveStatus: 'saved',
+            lastSavedAt: localSave.savedAt ?? null,
+          });
+          return true;
+        }
+
+        if (typeof window !== 'undefined') {
+          const raw = window.localStorage.getItem(
+            saveKeyFor(`name-${trimmed}`)
+          );
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw) as Partial<LocalGameSave>;
+              set({
+                playerProfile: parsed.playerProfile ?? null,
+                gameState: parsed.gameState ?? null,
+                playerPosition: parsed.playerPosition ?? {
+                  x: 5,
+                  y: 5,
+                },
+                worldTiles: Array.isArray(parsed.worldTiles)
+                  ? parsed.worldTiles
+                  : createWorldTiles(),
+                saveStatus: 'saved',
+                lastSavedAt:
+                  typeof parsed.savedAt === 'string'
+                    ? parsed.savedAt
+                    : null,
+              });
+              return true;
+            } catch {
+              return false;
+            }
+          }
+        }
+        return false;
+      },
 
       // ================================================================
       // DISCONNECT
@@ -502,8 +779,6 @@ export const useGameStore =
 
         /*
          * Always save locally.
-         * This is the important fix:
-         * saving no longer depends on Wallet connection.
          */
 
         let localPlayer =
@@ -558,7 +833,20 @@ export const useGameStore =
             savedAt: now,
           };
 
+        /*
+         * Key the save by the wallet address when connected, otherwise
+         * by the player name (so progress is tied to the name), falling
+         * back to the local player id.
+         */
+        const saveKey =
+          wallet && playerProfile
+            ? wallet
+            : localPlayer.username && localPlayer.username !== 'Local Player'
+              ? `name-${localPlayer.username}`
+              : localPlayer.id;
+
         writeLocalGameSave(
+          saveKey,
           localSave
         );
 
@@ -689,12 +977,37 @@ export const useGameStore =
               return;
             }
 
+            /*
+             * Normalize legacy fruit ids (fruit-seed-1 -> crystal-pear)
+             * so harvested fruits match the recipe ingredients.
+             */
+            const normalizedPlayer = loaded.player
+              ? {
+                  ...loaded.player,
+                  inventory:
+                    normalizeFruitInventory(
+                      loaded.player.inventory ?? [],
+                    ),
+                }
+              : null;
+
+            const normalizedGameState =
+              loaded.gameState
+                ? {
+                    ...loaded.gameState,
+                    inventory:
+                      normalizeFruitInventory(
+                        loaded.gameState.inventory ?? [],
+                      ),
+                  }
+                : null;
+
             set({
               playerProfile:
-                loaded.player,
+                normalizedPlayer,
 
               gameState:
-                loaded.gameState,
+                normalizedGameState,
 
               lastSavedAt:
                 loaded.savedAt,
@@ -708,22 +1021,25 @@ export const useGameStore =
              * after a successful remote load.
              */
 
-            writeLocalGameSave({
-              playerProfile:
-                loaded.player,
+            writeLocalGameSave(
+              playerId,
+              {
+                playerProfile:
+                  normalizedPlayer,
 
-              gameState:
-                loaded.gameState,
+                gameState:
+                  normalizedGameState,
 
-              playerPosition:
-                get().playerPosition,
+                playerPosition:
+                  get().playerPosition,
 
-              worldTiles:
-                get().worldTiles,
+                worldTiles:
+                  get().worldTiles,
 
-              savedAt:
-                loaded.savedAt,
-            });
+                savedAt:
+                  loaded.savedAt,
+              }
+            );
 
             console.log(
               '[Game] Load complete'

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { useGameStore } from '../game/useGameStore';
+import { getPlayerEco, patchPlayerEco } from './playerApi';
 import type { GemPaymentResult } from './tonVerificationService';
 import { usePaymentStore } from './paymentStore';
 
@@ -59,46 +60,28 @@ export interface GemBackend {
   save(data: GemSaveData): Promise<void>;
 }
 
-const LOCAL_STORAGE_KEY =
-  'land-orion-gems';
-
-const localGemBackend: GemBackend = {
+const supabaseGemBackend: GemBackend = {
   async load(): Promise<GemSaveData | null> {
-    if (
-      typeof window === 'undefined'
-    ) {
+    // Gems are loaded from the player's Supabase economy row — never from
+    // browser storage, so they survive across devices.
+    const eco = await getPlayerEco();
+
+    if (!eco) {
       return null;
     }
 
-    const raw =
-      window.localStorage.getItem(
-        LOCAL_STORAGE_KEY
-      );
-
-    if (!raw) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(
-        raw
-      ) as GemSaveData;
-    } catch {
-      return null;
-    }
+    return {
+      gems:
+        typeof eco.gems === 'number'
+          ? eco.gems
+          : STARTING_GEMS,
+    };
   },
 
-  async save(
-    data: GemSaveData
-  ): Promise<void> {
-    if (
-      typeof window !== 'undefined'
-    ) {
-      window.localStorage.setItem(
-        LOCAL_STORAGE_KEY,
-        JSON.stringify(data)
-      );
-    }
+  async save(data: GemSaveData): Promise<void> {
+    await patchPlayerEco({
+      gems: data.gems,
+    });
   },
 };
 
@@ -116,6 +99,8 @@ interface GemStoreState {
   gems: number;
 
   backend: GemBackend;
+
+  initialized: boolean;
 
   buying: boolean;
 
@@ -162,7 +147,9 @@ export const useGemStore =
         STARTING_GEMS,
 
       backend:
-        localGemBackend,
+        supabaseGemBackend,
+
+      initialized: false,
 
       buying: false,
 
@@ -173,6 +160,10 @@ export const useGemStore =
       // ================================================================
 
       initialize: async () => {
+        if (get().initialized) {
+          return;
+        }
+
         const data =
           await get().backend.load();
 
@@ -183,8 +174,14 @@ export const useGemStore =
               'number'
                 ? data.gems
                 : STARTING_GEMS,
+
+            initialized: true,
           });
         } else {
+          set({
+            initialized: true,
+          });
+
           void get().persist();
         }
       },

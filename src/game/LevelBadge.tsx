@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { VipPanel } from './VipPanel';
-import { MarketplacePanel } from './MarketplacePanel';
+import { MarketplacePanel } from './marketplace/MarketplacePanel';
 
 export function xpRequiredForLevel(
   level: number
