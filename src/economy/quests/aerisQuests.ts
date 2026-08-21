@@ -1,160 +1,116 @@
-import type { Quest } from './questTypes';
+import type {
+  Quest,
+  QuestRequirement,
+} from './questTypes';
+import type { PlayerResources } from '../resourceStore';
 
-export const AERIS_QUESTS: Quest[] = [
-  {
-    id: 'aeris-quest-01',
-    characterId: 'aeris',
-    day: 1,
-    title: 'Water Gathering',
-    description: 'Collect 100 Water.',
-    condition: {
-      label: '100 Water',
-      test: (ctx) => ctx.water >= 100,
-    },
-    reward: {
-      coins: 0,
-      tokens: 1,
-      gems: 0,
-    },
-    cost: {
-      water: 100,
-    },
-  },
+/*
+|--------------------------------------------------------------------------
+| AERIS — GRANDMOTHER (مادر بزرگ)
+|
+| میوه می‌گیرد و سکه می‌دهد.
+| پاداش = ارزش میوه × 1.6 (حداکثر 1000 سکه)
+|
+| ارزش هر میوه بر اساس قیمت بذر آن در seedCatalog:
+|   crystal-pear 2 · star-plum 3 · nova-berry 4 · moon-apple 10
+|   orion-eternal-fruit 20 · nebula-orange 40 · cosmic-peach 100
+|   galaxy-mango 150 · celestial-melon 300 · solar-dragon-fruit 500
+|--------------------------------------------------------------------------
+*/
 
-  {
-    id: 'aeris-quest-02',
-    characterId: 'aeris',
-    day: 2,
-    title: 'Wind and Water',
-    description: 'Collect 60 Air and 40 Water.',
-    condition: {
-      label: '60 Air + 40 Water',
-      test: (ctx) =>
-        ctx.air >= 60 &&
-        ctx.water >= 40,
-    },
-    reward: {
-      coins: 0,
-      tokens: 2,
-      gems: 0,
-    },
-    cost: {
-      air: 60,
-      water: 40,
-    },
-  },
+function emptyReward(): PlayerResources {
+  return {
+    coins: 0,
+    tokens: 0,
+    gems: 0,
+    water: 0,
+    air: 0,
+    earth: 0,
+    fire: 0,
+    wood: 0,
+    stone: 0,
+    iron: 0,
+    gold: 0,
+    crystal: 0,
+  };
+}
 
-  {
-    id: 'aeris-quest-03',
-    characterId: 'aeris',
-    day: 3,
-    title: 'Wind and Fire',
-    description: 'Collect 50 Air and 50 Fire.',
-    condition: {
-      label: '50 Air + 50 Fire',
-      test: (ctx) =>
-        ctx.air >= 50 &&
-        ctx.fire >= 50,
-    },
-    reward: {
-      coins: 0,
-      tokens: 2,
-      gems: 0,
-    },
-    cost: {
-      air: 50,
-      fire: 50,
-    },
-  },
+interface FruitSpec {
+  id: string;
+  name: string;
+  image: string;
+  unitValue: number;
+  amount: number;
+}
 
-  {
-    id: 'aeris-quest-04',
-    characterId: 'aeris',
-    day: 4,
-    title: 'Four Elements',
-    description: 'Collect 40 Air, 30 Water and 30 Earth.',
-    condition: {
-      label: '40 Air + 30 Water + 30 Earth',
-      test: (ctx) =>
-        ctx.air >= 40 &&
-        ctx.water >= 30 &&
-        ctx.earth >= 30,
-    },
-    reward: {
-      coins: 0,
-      tokens: 3,
-      gems: 0,
-    },
-    cost: {
-      air: 40,
-      water: 30,
-      earth: 30,
-    },
-  },
-
-  {
-    id: 'aeris-quest-05',
-    characterId: 'aeris',
-    day: 5,
-    title: 'Fire in the Wind',
-    description: 'Collect 75 Air and 25 Fire.',
-    condition: {
-      label: '75 Air + 25 Fire',
-      test: (ctx) =>
-        ctx.air >= 75 &&
-        ctx.fire >= 25,
-    },
-    reward: {
-      coins: 0,
-      tokens: 3,
-      gems: 0,
-    },
-    cost: {
-      air: 75,
-      fire: 25,
-    },
-  },
-
-  {
-    id: 'aeris-quest-06',
-    characterId: 'aeris',
-    day: 6,
-    title: 'Elemental Current',
-    description: 'Collect 80 Air and 40 Earth.',
-    condition: {
-      label: '80 Air + 40 Earth',
-      test: (ctx) =>
-        ctx.air >= 80 &&
-        ctx.earth >= 40,
-    },
-    reward: {
-      coins: 0,
-      tokens: 4,
-      gems: 0,
-    },
-    cost: {
-      air: 80,
-      earth: 40,
-    },
-  },
-
-  {
-    id: 'aeris-quest-07',
-    characterId: 'aeris',
-    day: 7,
-    title: 'Element Master',
-    description: 'Collect 120 Air.',
-    condition: {
-      label: '120 Air',
-      test: (ctx) => ctx.air >= 120,
-    },
-    reward: {
-      coins: 0,
-      tokens: 5,
-      gems: 0,
-    },
-    cost: {
-      air: 120,
-    },
-  },
+const FRUITS: FruitSpec[] = [
+  { id: 'crystal-pear', name: 'Crystal Pear', image: '/assets/crystal-pear.png', unitValue: 2, amount: 100 },
+  { id: 'crystal-pear', name: 'Crystal Pear', image: '/assets/crystal-pear.png', unitValue: 2, amount: 180 },
+  { id: 'star-plum', name: 'Star Plum', image: '/assets/star-plum.png', unitValue: 3, amount: 90 },
+  { id: 'star-plum', name: 'Star Plum', image: '/assets/star-plum.png', unitValue: 3, amount: 150 },
+  { id: 'nova-berry', name: 'Nova Berry', image: '/assets/nova-berry.png', unitValue: 4, amount: 70 },
+  { id: 'nova-berry', name: 'Nova Berry', image: '/assets/nova-berry.png', unitValue: 4, amount: 120 },
+  { id: 'moon-apple', name: 'Moon Apple', image: '/assets/moon-apple.png', unitValue: 10, amount: 35 },
+  { id: 'moon-apple', name: 'Moon Apple', image: '/assets/moon-apple.png', unitValue: 10, amount: 55 },
+  { id: 'orion-eternal-fruit', name: 'Orion Eternal Fruit', image: '/assets/orion-eternal-fruit.png', unitValue: 20, amount: 25 },
+  { id: 'orion-eternal-fruit', name: 'Orion Eternal Fruit', image: '/assets/orion-eternal-fruit.png', unitValue: 20, amount: 31 },
+  { id: 'nebula-orange', name: 'Nebula Orange', image: '/assets/nebula-orange.png', unitValue: 40, amount: 12 },
+  { id: 'nebula-orange', name: 'Nebula Orange', image: '/assets/nebula-orange.png', unitValue: 40, amount: 15 },
+  { id: 'cosmic-peach', name: 'Cosmic Peach', image: '/assets/cosmic-peach.png', unitValue: 100, amount: 6 },
+  { id: 'galaxy-mango', name: 'Galaxy Mango', image: '/assets/galaxy-mango.png', unitValue: 150, amount: 4 },
+  { id: 'celestial-melon', name: 'Celestial Melon', image: '/assets/celestial-melon.png', unitValue: 300, amount: 2 },
 ];
+
+export const AERIS_QUESTS: Quest[] = FRUITS.map(
+  (fruit, index) => {
+    const rewardCoins = Math.min(
+      1000,
+      Math.ceil(
+        fruit.amount *
+          fruit.unitValue *
+          1.6,
+      ),
+    );
+
+    const requirement: QuestRequirement =
+      {
+        kind: 'inventory',
+        id: fruit.id,
+        name: fruit.name,
+        amount: fruit.amount,
+        image: fruit.image,
+      };
+
+    return {
+      id: `aeris-${String(index + 1).padStart(2, '0')}`,
+      characterId: 'aeris',
+
+      title: `${fruit.name} Delivery`,
+      description: `Grandmother Aeris bakes her famous pie. Bring her ${fruit.amount} ${fruit.name}.`,
+
+      requirement,
+
+      condition: {
+        label: `Have ${fruit.amount} ${fruit.name}`,
+        test: (ctx) =>
+          (ctx.inventoryQuantities?.[
+            fruit.id
+          ] ??
+            0) >= fruit.amount,
+      },
+
+      reward: {
+        ...emptyReward(),
+        coins: rewardCoins,
+      },
+
+      inventoryCost: [
+        {
+          id: fruit.id,
+          name: fruit.name,
+          quantity: fruit.amount,
+        },
+      ],
+    };
+  },
+);

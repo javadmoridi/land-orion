@@ -370,12 +370,13 @@ export function Miner({
       loadMinerData
     );
 
-  const coins = useResourceStore(
-    (state) => state.resources.coins
+  // Miner upgrades are paid with the Orion token (NOT coins).
+  const tokens = useResourceStore(
+    (state) => state.resources.tokens
   );
 
-  const spendCoins = useResourceStore(
-    (state) => state.spendCoins
+  const spendTokens = useResourceStore(
+    (state) => state.spendTokens
   );
 
   const addWater = useResourceStore(
@@ -565,11 +566,11 @@ export function Miner({
     }
 
     if (
-      coins <
+      tokens <
       upgradeCost
     ) {
       setMessage(
-        `Not enough coins. Required: ${formatNumber(
+        `Not enough Orion tokens. Required: ${formatNumber(
           upgradeCost
         )}.`
       );
@@ -577,11 +578,11 @@ export function Miner({
     }
 
     const spent =
-      spendCoins(upgradeCost);
+      spendTokens(upgradeCost);
 
     if (!spent) {
       setMessage(
-        'Not enough coins.'
+        'Not enough Orion tokens.'
       );
       return;
     }
@@ -1186,9 +1187,9 @@ export function Miner({
                             '0.75rem',
                         }}
                       >
-                        Your coins:{' '}
+                        Your Orion:{' '}
                         {formatNumber(
-                          coins
+                          tokens
                         )}
                       </div>
                     </div>
@@ -1201,7 +1202,7 @@ export function Miner({
                     }
                     disabled={
                       !canUpgrade ||
-                      coins <
+                      tokens <
                         upgradeCost
                     }
                     style={{
@@ -1213,19 +1214,19 @@ export function Miner({
                         '12px 16px',
                       background:
                         canUpgrade &&
-                        coins >=
+                        tokens >=
                           upgradeCost
                           ? '#22c55e'
                           : 'rgba(255,255,255,.08)',
                       color:
                         canUpgrade &&
-                        coins >=
+                        tokens >=
                           upgradeCost
                           ? '#04130a'
                           : '#777',
                       cursor:
                         canUpgrade &&
-                        coins >=
+                        tokens >=
                           upgradeCost
                           ? 'pointer'
                           : 'not-allowed',

@@ -1,14 +1,14 @@
 import { create } from 'zustand';
 
-import { useGameStore } from '../game/useGameStore';
-import { useResourceStore } from './resourceStore';
-import { useVipStore } from './vipStore';
+import { useGameStore } from '../useGameStore';
+import { useResourceStore } from '../../economy/resourceStore';
+import { useVipStore } from '../../economy/vipStore';
 
 import {
   getFoodById,
   createFoodInventoryItem,
   type FoodDefinition,
-} from './foodCatalog';
+} from '../foodCatalog';
 
 export interface CookingJob {
   id: string;

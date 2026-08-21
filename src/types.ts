@@ -116,6 +116,28 @@ export interface GameState {
   battle?: {
     durationMs: number;
   };
+
+  /**
+   * Bot War (PvE) progression. Persisted to Supabase as part of
+   * game_data.gameState on every saveGame() call.
+   */
+  war?: WarState;
+}
+
+/**
+ * Progress of the player in the Bot War game mode (666 levels).
+ */
+export interface WarState {
+  /** Next level the player has to fight (1..666). */
+  currentLevel: number;
+  /** Highest level cleared so far. */
+  highestLevel: number;
+  /** Total battles won. */
+  wins: number;
+  /** Total battles lost. */
+  losses: number;
+  /** Total Orion tokens earned from war rewards. */
+  totalRewardTokens: number;
 }
 
 export interface InventoryItem {

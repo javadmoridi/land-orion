@@ -29,14 +29,6 @@ declare global {
       WebApp?: {
         ready: () => void;
         expand: () => void;
-        initDataUnsafe?: {
-          user?: {
-            id?: number;
-            first_name?: string;
-            last_name?: string;
-            username?: string;
-          };
-        };
       };
     };
   }
@@ -44,9 +36,6 @@ declare global {
 
 export const WALLET_BACKGROUND =
   '/assets/wallet-background.jpg';
-
-const TON_MANIFEST_URL =
-  'https://land-orion-mu.vercel.app/tonconnect-manifest.json';
 
 export function WalletConnectionScreen() {
   const userFriendlyAddress =
@@ -69,9 +58,7 @@ export function WalletConnectionScreen() {
   } = useGameStore();
 
   const [referralCode, setReferralCode] =
-    useState(() =>
-      getReferralCodeFromUrl() ?? ''
-    );
+    useState('');
 
   const [welcomeMessage, setWelcomeMessage] =
     useState<string | null>(null);
@@ -81,6 +68,21 @@ export function WalletConnectionScreen() {
 
   const rewardProcessed =
     useRef<string | null>(null);
+
+  // ============================================================
+  // REFERRAL
+  // ============================================================
+
+  useEffect(() => {
+    const code =
+      getReferralCodeFromUrl();
+
+    if (code) {
+      setReferralCode(
+        code.toUpperCase()
+      );
+    }
+  }, []);
 
   // ============================================================
   // TELEGRAM
@@ -99,7 +101,7 @@ export function WalletConnectionScreen() {
   }, []);
 
   // ============================================================
-  // WALLET CONNECTION
+  // WALLET
   // ============================================================
 
   useEffect(() => {
@@ -152,10 +154,6 @@ export function WalletConnectionScreen() {
             .initialize(),
         ]);
 
-        // --------------------------------------------------------
-        // LOGIN REWARD
-        // --------------------------------------------------------
-
         if (
           rewardProcessed.current !==
           address
@@ -200,7 +198,7 @@ export function WalletConnectionScreen() {
         }
       } catch (err) {
         console.error(
-          '[WalletConnectionScreen] Connection error:',
+          '[Wallet] Connection error:',
           err
         );
       }
@@ -368,8 +366,7 @@ export function WalletConnectionScreen() {
             color: '#6b7c99',
           }}
         >
-          Join with a friend's code
-          to unlock a referral bonus.
+          Join with a friend's code.
           Every new player receives
           100 Gems on first login.
         </p>
@@ -386,7 +383,7 @@ export function WalletConnectionScreen() {
           <TonConnectButton />
         </div>
 
-        {/* WELCOME REWARD */}
+        {/* WELCOME */}
 
         {welcomeMessage && (
           <div
@@ -484,15 +481,6 @@ export function WalletConnectionScreen() {
           Connect via TON Connect
           to enter Land-Orion.
         </p>
-
-        {/* Manifest is intentionally explicit in main.tsx */}
-        <span
-          style={{
-            display: 'none',
-          }}
-        >
-          {TON_MANIFEST_URL}
-        </span>
       </div>
     </div>
   );

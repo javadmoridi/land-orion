@@ -24,3 +24,20 @@ body {
 button {
   cursor: pointer;
 }
+
+/* ==========================================================================
+ * TON Connect modal fix
+ *
+ * TonConnect renders its wallet-picker modal into a plain
+ * <div id="tc-widget-root"> appended to <body>. The modal itself uses
+ * z-index: 1000, which is BELOW the game's full-screen panels
+ * (VIP panel = 10000), so opening the modal from inside those panels made
+ * it appear as if nothing happened.
+ *
+ * <tc-root> hosts the dropdown layer - raise it too.
+ * ======================================================================== */
+#tc-widget-root,
+tc-root {
+  position: relative;
+  z-index: 2147483000;
+}

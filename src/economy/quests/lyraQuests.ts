@@ -1,408 +1,116 @@
-import type { Quest } from './questTypes';
+import type {
+  Quest,
+  QuestRequirement,
+} from './questTypes';
+import type { PlayerResources } from '../resourceStore';
 
-export const LYRA_QUESTS: Quest[] = [
-  {
-    id: 'lyra-01',
-    characterId: 'lyra',
-    title: 'Fresh Fruit',
-    description: 'Collect 20 common fruits.',
-    requirements: { food: 20 },
-    reward: { coins: 500 },
-  },
-  {
-    id: 'lyra-02',
-    characterId: 'lyra',
-    title: 'Fruit Basket',
-    description: 'Collect 30 fruits.',
-    requirements: { food: 30 },
-    reward: { coins: 600 },
-  },
-  {
-    id: 'lyra-03',
-    characterId: 'lyra',
-    title: 'Sweet Harvest',
-    description: 'Collect 40 fruits.',
-    requirements: { food: 40 },
-    reward: { coins: 700 },
-  },
-  {
-    id: 'lyra-04',
-    characterId: 'lyra',
-    title: 'Royal Fruit',
-    description: 'Collect 50 fruits.',
-    requirements: { food: 50 },
-    reward: { coins: 800 },
-  },
-  {
-    id: 'lyra-05',
-    characterId: 'lyra',
-    title: 'Golden Harvest',
-    description: 'Collect 60 fruits.',
-    requirements: { food: 60 },
-    reward: { coins: 900 },
-  },
-  {
-    id: 'lyra-06',
-    characterId: 'lyra',
-    title: 'Fruit Collector',
-    description: 'Collect 70 fruits.',
-    requirements: { food: 70 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-07',
-    characterId: 'lyra',
-    title: 'Orchard Keeper',
-    description: 'Collect 80 fruits.',
-    requirements: { food: 80 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-08',
-    characterId: 'lyra',
-    title: 'Rare Fruit',
-    description: 'Collect 90 fruits.',
-    requirements: { food: 90 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-09',
-    characterId: 'lyra',
-    title: 'Royal Orchard',
-    description: 'Collect 100 fruits.',
-    requirements: { food: 100 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-10',
-    characterId: 'lyra',
-    title: 'Fruit Festival',
-    description: 'Collect 110 fruits.',
-    requirements: { food: 110 },
-    reward: { coins: 1000 },
-  },
+/*
+|--------------------------------------------------------------------------
+| LYRA — PRINCESS (شاه دخت)
+|
+| غذا (بخارپز شده در آشپزخانه) می‌گیرد و سکه می‌دهد.
+| پاداش = ارزش غذا × 1.6 (حداکثر 1000 سکه)
+| ارزش هر غذا = gemCost × 60
+|--------------------------------------------------------------------------
+*/
 
-  {
-    id: 'lyra-11',
-    characterId: 'lyra',
-    title: 'Berry Gathering',
-    description: 'Collect 25 fruits.',
-    requirements: { food: 25 },
-    reward: { coins: 500 },
-  },
-  {
-    id: 'lyra-12',
-    characterId: 'lyra',
-    title: 'Apple Harvest',
-    description: 'Collect 35 fruits.',
-    requirements: { food: 35 },
-    reward: { coins: 600 },
-  },
-  {
-    id: 'lyra-13',
-    characterId: 'lyra',
-    title: 'Pear Harvest',
-    description: 'Collect 45 fruits.',
-    requirements: { food: 45 },
-    reward: { coins: 700 },
-  },
-  {
-    id: 'lyra-14',
-    characterId: 'lyra',
-    title: 'Melon Harvest',
-    description: 'Collect 55 fruits.',
-    requirements: { food: 55 },
-    reward: { coins: 800 },
-  },
-  {
-    id: 'lyra-15',
-    characterId: 'lyra',
-    title: 'Sweet Orchard',
-    description: 'Collect 65 fruits.',
-    requirements: { food: 65 },
-    reward: { coins: 900 },
-  },
-  {
-    id: 'lyra-16',
-    characterId: 'lyra',
-    title: 'Fruit Merchant',
-    description: 'Collect 75 fruits.',
-    requirements: { food: 75 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-17',
-    characterId: 'lyra',
-    title: 'Garden Harvest',
-    description: 'Collect 85 fruits.',
-    requirements: { food: 85 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-18',
-    characterId: 'lyra',
-    title: 'Fruit Treasure',
-    description: 'Collect 95 fruits.',
-    requirements: { food: 95 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-19',
-    characterId: 'lyra',
-    title: 'Grand Orchard',
-    description: 'Collect 105 fruits.',
-    requirements: { food: 105 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-20',
-    characterId: 'lyra',
-    title: 'Princess Harvest',
-    description: 'Collect 120 fruits.',
-    requirements: { food: 120 },
-    reward: { coins: 1000 },
-  },
+function emptyReward(): PlayerResources {
+  return {
+    coins: 0,
+    tokens: 0,
+    gems: 0,
+    water: 0,
+    air: 0,
+    earth: 0,
+    fire: 0,
+    wood: 0,
+    stone: 0,
+    iron: 0,
+    gold: 0,
+    crystal: 0,
+  };
+}
 
-  {
-    id: 'lyra-21',
-    characterId: 'lyra',
-    title: 'Morning Harvest',
-    description: 'Collect 30 fruits.',
-    requirements: { food: 30 },
-    reward: { coins: 500 },
-  },
-  {
-    id: 'lyra-22',
-    characterId: 'lyra',
-    title: 'Garden Basket',
-    description: 'Collect 40 fruits.',
-    requirements: { food: 40 },
-    reward: { coins: 600 },
-  },
-  {
-    id: 'lyra-23',
-    characterId: 'lyra',
-    title: 'Fruit Grove',
-    description: 'Collect 50 fruits.',
-    requirements: { food: 50 },
-    reward: { coins: 700 },
-  },
-  {
-    id: 'lyra-24',
-    characterId: 'lyra',
-    title: 'Royal Basket',
-    description: 'Collect 60 fruits.',
-    requirements: { food: 60 },
-    reward: { coins: 800 },
-  },
-  {
-    id: 'lyra-25',
-    characterId: 'lyra',
-    title: 'Rare Harvest',
-    description: 'Collect 70 fruits.',
-    requirements: { food: 70 },
-    reward: { coins: 900 },
-  },
-  {
-    id: 'lyra-26',
-    characterId: 'lyra',
-    title: 'Fruit Guardian',
-    description: 'Collect 80 fruits.',
-    requirements: { food: 80 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-27',
-    characterId: 'lyra',
-    title: 'Orchard Treasure',
-    description: 'Collect 90 fruits.',
-    requirements: { food: 90 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-28',
-    characterId: 'lyra',
-    title: 'Royal Harvest',
-    description: 'Collect 100 fruits.',
-    requirements: { food: 100 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-29',
-    characterId: 'lyra',
-    title: 'Grand Fruit Basket',
-    description: 'Collect 110 fruits.',
-    requirements: { food: 110 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-30',
-    characterId: 'lyra',
-    title: 'Legendary Orchard',
-    description: 'Collect 120 fruits.',
-    requirements: { food: 120 },
-    reward: { coins: 1000 },
-  },
+interface FoodSpec {
+  id: string;
+  name: string;
+  image: string;
+  gemCost: number;
+  amount: number;
+}
 
-  {
-    id: 'lyra-31',
-    characterId: 'lyra',
-    title: 'Fruit Quest',
-    description: 'Collect 35 fruits.',
-    requirements: { food: 35 },
-    reward: { coins: 500 },
-  },
-  {
-    id: 'lyra-32',
-    characterId: 'lyra',
-    title: 'Sweet Basket',
-    description: 'Collect 45 fruits.',
-    requirements: { food: 45 },
-    reward: { coins: 600 },
-  },
-  {
-    id: 'lyra-33',
-    characterId: 'lyra',
-    title: 'Orchard Worker',
-    description: 'Collect 55 fruits.',
-    requirements: { food: 55 },
-    reward: { coins: 700 },
-  },
-  {
-    id: 'lyra-34',
-    characterId: 'lyra',
-    title: 'Fruit Keeper',
-    description: 'Collect 65 fruits.',
-    requirements: { food: 65 },
-    reward: { coins: 800 },
-  },
-  {
-    id: 'lyra-35',
-    characterId: 'lyra',
-    title: 'Rare Basket',
-    description: 'Collect 75 fruits.',
-    requirements: { food: 75 },
-    reward: { coins: 900 },
-  },
-  {
-    id: 'lyra-36',
-    characterId: 'lyra',
-    title: 'Royal Fruit Keeper',
-    description: 'Collect 85 fruits.',
-    requirements: { food: 85 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-37',
-    characterId: 'lyra',
-    title: 'Fruit Master',
-    description: 'Collect 95 fruits.',
-    requirements: { food: 95 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-38',
-    characterId: 'lyra',
-    title: 'Orchard Master',
-    description: 'Collect 105 fruits.',
-    requirements: { food: 105 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-39',
-    characterId: 'lyra',
-    title: 'Royal Orchard Master',
-    description: 'Collect 115 fruits.',
-    requirements: { food: 115 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-40',
-    characterId: 'lyra',
-    title: 'Grand Harvest',
-    description: 'Collect 125 fruits.',
-    requirements: { food: 125 },
-    reward: { coins: 1000 },
-  },
-
-  {
-    id: 'lyra-41',
-    characterId: 'lyra',
-    title: 'Fruit Offering',
-    description: 'Collect 40 fruits.',
-    requirements: { food: 40 },
-    reward: { coins: 500 },
-  },
-  {
-    id: 'lyra-42',
-    characterId: 'lyra',
-    title: 'Royal Offering',
-    description: 'Collect 50 fruits.',
-    requirements: { food: 50 },
-    reward: { coins: 600 },
-  },
-  {
-    id: 'lyra-43',
-    characterId: 'lyra',
-    title: 'Sweet Offering',
-    description: 'Collect 60 fruits.',
-    requirements: { food: 60 },
-    reward: { coins: 700 },
-  },
-  {
-    id: 'lyra-44',
-    characterId: 'lyra',
-    title: 'Garden Offering',
-    description: 'Collect 70 fruits.',
-    requirements: { food: 70 },
-    reward: { coins: 800 },
-  },
-  {
-    id: 'lyra-45',
-    characterId: 'lyra',
-    title: 'Rare Offering',
-    description: 'Collect 80 fruits.',
-    requirements: { food: 80 },
-    reward: { coins: 900 },
-  },
-  {
-    id: 'lyra-46',
-    characterId: 'lyra',
-    title: 'Royal Garden',
-    description: 'Collect 90 fruits.',
-    requirements: { food: 90 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-47',
-    characterId: 'lyra',
-    title: 'Fruit Queen',
-    description: 'Collect 100 fruits.',
-    requirements: { food: 100 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-48',
-    characterId: 'lyra',
-    title: 'Grand Fruit Queen',
-    description: 'Collect 110 fruits.',
-    requirements: { food: 110 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-49',
-    characterId: 'lyra',
-    title: 'Royal Fruit Festival',
-    description: 'Collect 120 fruits.',
-    requirements: { food: 120 },
-    reward: { coins: 1000 },
-  },
-  {
-    id: 'lyra-50',
-    characterId: 'lyra',
-    title: 'Legendary Harvest',
-    description: 'Collect 130 fruits.',
-    requirements: { food: 130 },
-    reward: { coins: 1000 },
-  },
+const FOODS: FoodSpec[] = [
+  { id: 'star-plum-bowl', name: 'Star Plum Bowl', image: '/assets/star-plum.png', gemCost: 3, amount: 3 },
+  { id: 'star-plum-bowl', name: 'Star Plum Bowl', image: '/assets/star-plum.png', gemCost: 3, amount: 1 },
+  { id: 'crystal-pear-salad', name: 'Crystal Pear Salad', image: '/assets/crystal-pear.png', gemCost: 3, amount: 3 },
+  { id: 'crystal-pear-salad', name: 'Crystal Pear Salad', image: '/assets/crystal-pear.png', gemCost: 3, amount: 2 },
+  { id: 'moon-apple-juice', name: 'Moon Apple Juice', image: '/assets/moon-apple.png', gemCost: 4, amount: 2 },
+  { id: 'cosmic-peach-bowl', name: 'Cosmic Peach Bowl', image: '/assets/cosmic-peach.png', gemCost: 4, amount: 2 },
+  { id: 'nova-berry-mix', name: 'Nova Berry Mix', image: '/assets/nova-berry.png', gemCost: 5, amount: 2 },
+  { id: 'nebula-orange-salad', name: 'Nebula Orange Salad', image: '/assets/nebula-orange.png', gemCost: 6, amount: 1 },
+  { id: 'galaxy-mango-dessert', name: 'Galaxy Mango Dessert', image: '/assets/galaxy-mango.png', gemCost: 6, amount: 1 },
+  { id: 'solar-peach-salad', name: 'Solar Peach Salad', image: '/assets/cosmic-peach.png', gemCost: 7, amount: 1 },
+  { id: 'celestial-melon-bowl', name: 'Celestial Melon Bowl', image: '/assets/celestial-melon.png', gemCost: 8, amount: 1 },
+  { id: 'solar-dragon-feast', name: 'Solar Dragon Feast', image: '/assets/solar-dragon-fruit.png', gemCost: 9, amount: 1 },
+  { id: 'nova-crystal-dessert', name: 'Nova Crystal Dessert', image: '/assets/nova-berry.png', gemCost: 10, amount: 1 },
+  { id: 'moon-galaxy-pudding', name: 'Moon Galaxy Pudding', image: '/assets/moon-apple.png', gemCost: 11, amount: 1 },
+  { id: 'celestial-solar-bowl', name: 'Celestial Solar Bowl', image: '/assets/celestial-melon.png', gemCost: 12, amount: 1 },
 ];
+
+export const LYRA_QUESTS: Quest[] = FOODS.map(
+  (food, index) => {
+    const rewardCoins = Math.min(
+      1000,
+      Math.ceil(
+        food.gemCost *
+          60 *
+          food.amount *
+          1.6,
+      ),
+    );
+
+    const inventoryId =
+      `food:${food.id}`;
+
+    const requirement: QuestRequirement =
+      {
+        kind: 'inventory',
+        id: inventoryId,
+        name: food.name,
+        amount: food.amount,
+        image: food.image,
+      };
+
+    return {
+      id: `lyra-${String(index + 1).padStart(2, '0')}`,
+      characterId: 'lyra',
+
+      title: `Royal ${food.name} Order`,
+      description: `Princess Lyra is hungry for a royal treat. Deliver ${food.amount} ${food.name}.`,
+
+      requirement,
+
+      condition: {
+        label: `Have ${food.amount} ${food.name}`,
+        test: (ctx) =>
+          (ctx.inventoryQuantities?.[
+            inventoryId
+          ] ??
+            0) >= food.amount,
+      },
+
+      reward: {
+        ...emptyReward(),
+        coins: rewardCoins,
+      },
+
+      inventoryCost: [
+        {
+          id: inventoryId,
+          name: food.name,
+          quantity: food.amount,
+        },
+      ],
+    };
+  },
+);

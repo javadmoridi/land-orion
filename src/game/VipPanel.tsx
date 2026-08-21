@@ -18,11 +18,12 @@ import { useGameStore } from './useGameStore';
 
 import {
   getMyReferralCode,
+  getReferralCodeSync,
 } from '../economy/playerApi';
 
 import {
-  TonConnectButton,
   useTonAddress,
+  useTonConnectUI,
 } from '@tonconnect/ui-react';
 
 import { formatWalletAddress } from '../wallet/walletService';
@@ -126,8 +127,25 @@ export function VipPanel({
   const tonAddress =
     useTonAddress();
 
+  const [tonConnectUI] =
+    useTonConnectUI();
+
   const isWalletConnected =
     Boolean(tonAddress);
+
+  const openWalletModal =
+    () => {
+      try {
+        void tonConnectUI?.openModal();
+      } catch (error) {
+        console.error(
+          '[VipPanel] Failed to open TON Connect modal:',
+          error,
+        );
+
+        setWalletStatus(null);
+      }
+    };
 
   const [
     walletStatus,
@@ -140,10 +158,14 @@ export function VipPanel({
   const [
     myReferralCode,
     setMyReferralCode,
-  ] =
-    useState<string | null>(
-      null
-    );
+  ] = useState<string | null>(() =>
+    /*
+     * Initialize synchronously from localStorage so the referral
+     * code AND the direct invite link are visible immediately,
+     * even before/if the backend responds.
+     */
+    getReferralCodeSync(),
+  );
 
   const [
     copiedType,
@@ -154,24 +176,28 @@ export function VipPanel({
     >(null);
 
   useEffect(() => {
-    if (
-      open &&
-      myReferralCode === null
-    ) {
-      void getMyReferralCode().then(
-        (code) => {
-          if (code) {
-            setMyReferralCode(
-              code
-            );
-          }
-        }
-      );
+    if (!open) {
+      return;
     }
-  }, [
-    open,
-    myReferralCode,
-  ]);
+
+    /*
+     * Try to sync with the authoritative code stored in Supabase.
+     * The panel already shows the locally cached code, so even if
+     * this fails the referral section is never empty.
+     */
+    getMyReferralCode()
+      .then((code) => {
+        if (code) {
+          setMyReferralCode(code);
+        }
+      })
+      .catch((error) => {
+        console.warn(
+          '[VipPanel] Referral code sync failed:',
+          error,
+        );
+      });
+  }, [open]);
 
   useEffect(() => {
     if (
@@ -260,9 +286,22 @@ export function VipPanel({
     activeVip !== null &&
     remainingMs > 0;
 
+  /*
+   * The invite link must always point to the LIVE site so it works
+   * when shared, even if the player is currently testing on
+   * localhost or inside a Telegram WebView with a different origin.
+   */
+  const referralBaseUrl =
+    window.location.hostname ===
+      'localhost' ||
+    window.location.hostname ===
+      '127.0.0.1'
+      ? 'https://land-orion-mu.vercel.app'
+      : window.location.origin;
+
   const referralLink =
     myReferralCode
-      ? `${window.location.origin}/?ref=${myReferralCode}`
+      ? `${referralBaseUrl}/?ref=${myReferralCode}`
       : '';
 
   const copyReferralCode =
@@ -810,7 +849,31 @@ export function VipPanel({
                   marginBottom: 6,
                 }}
               >
-                <TonConnectButton />
+                <button
+                  type="button"
+                  onClick={
+                    openWalletModal
+                  }
+                  style={{
+                    width: '100%',
+                    border: 'none',
+                    borderRadius: 10,
+                    padding:
+                      '0.8rem 1rem',
+                    background:
+                      'linear-gradient(135deg,#0098ea,#0077c9)',
+                    color: '#fff',
+                    fontWeight: 900,
+                    fontSize:
+                      '0.85rem',
+                    letterSpacing:
+                      '0.04em',
+                    cursor:
+                      'pointer',
+                  }}
+                >
+                  CONNECT WALLET
+                </button>
               </div>
 
               {walletStatus ===

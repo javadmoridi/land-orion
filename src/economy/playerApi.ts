@@ -254,7 +254,53 @@ function generateReferralCode(): string {
 
 // ============================================================================
 // GET MY REFERRAL CODE
+//
+// Always resolves to a code:
+//   1. Supabase code when the backend is reachable and a wallet is bound.
+//   2. A locally generated + cached code otherwise, so the VIP panel can
+//      always show / copy / share a referral code.
 // ============================================================================
+
+const LOCAL_REFERRAL_CODE_KEY =
+  'land-orion-referral-code';
+
+/**
+ * Returns the player's referral code synchronously (from localStorage,
+ * generating + caching one if needed). Used so the VIP panel can show
+ * the code / link instantly without waiting for the backend.
+ */
+export function getReferralCodeSync(): string {
+  const code =
+    generateReferralCode();
+
+  if (typeof window === 'undefined') {
+    return code;
+  }
+
+  try {
+    const existing =
+      window.localStorage.getItem(
+        LOCAL_REFERRAL_CODE_KEY,
+      );
+
+    if (existing) {
+      return existing;
+    }
+
+    window.localStorage.setItem(
+      LOCAL_REFERRAL_CODE_KEY,
+      code,
+    );
+  } catch {
+    /* storage unavailable - just use the generated code */
+  }
+
+  return code;
+}
+
+function getLocalReferralCode(): string {
+  return getReferralCodeSync();
+}
 
 export async function getMyReferralCode(): Promise<string | null> {
   const wallet = activeWallet();
@@ -264,7 +310,7 @@ export async function getMyReferralCode(): Promise<string | null> {
     !supabase ||
     !wallet
   ) {
-    return null;
+    return getLocalReferralCode();
   }
 
   setWalletHeader(wallet);
@@ -284,7 +330,7 @@ export async function getMyReferralCode(): Promise<string | null> {
       error.message,
     );
 
-    return null;
+    return getLocalReferralCode();
   }
 
   const existing = (
@@ -322,7 +368,7 @@ export async function getMyReferralCode(): Promise<string | null> {
       updateError.message,
     );
 
-    return null;
+    return getLocalReferralCode();
   }
 
   return code;

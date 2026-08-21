@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { VipPanel } from './VipPanel';
+import { WarBotPanel } from './WarBotPanel';
 import { MarketplacePanel } from './marketplace/MarketplacePanel';
 
 export function xpRequiredForLevel(
@@ -32,10 +33,14 @@ export function LevelBadge({
   const [battleOpen, setBattleOpen] =
     useState(false);
 
+  const [warOpen, setWarOpen] =
+    useState(false);
+
   const anyPanelOpen =
     vipOpen ||
     shopOpen ||
-    battleOpen;
+    battleOpen ||
+    warOpen;
 
   return (
     <>
@@ -179,6 +184,17 @@ export function LevelBadge({
       />
 
       {/* ============================================================
+          BOT WAR (666 LEVELS)
+      ============================================================ */}
+
+      <WarBotPanel
+        open={warOpen}
+        onClose={() =>
+          setWarOpen(false)
+        }
+      />
+
+      {/* ============================================================
           MARKETPLACE
       ============================================================ */}
 
@@ -297,11 +313,10 @@ export function LevelBadge({
 
             <BattleOptionButton
               title="BATTLE VS BOT"
-              subtitle="Fight against an AI opponent"
+              subtitle="Fight robots across 666 levels and earn Orion tokens"
               onClick={() => {
-                console.log(
-                  'BATTLE VS BOT'
-                );
+                setBattleOpen(false);
+                setWarOpen(true);
               }}
             />
 

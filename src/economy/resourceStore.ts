@@ -580,6 +580,23 @@ export const useResourceStore =
         };
       });
 
+      // Inventory costs (fruits / cooked foods) are deducted from the
+      // game inventory and saved to Supabase through saveGame().
+      if (
+        quest.inventoryCost &&
+        quest.inventoryCost.length > 0
+      ) {
+        const gameStore =
+          useGameStore.getState();
+
+        for (const item of quest.inventoryCost) {
+          gameStore.removeFromInventory(
+            item.id,
+            item.quantity,
+          );
+        }
+      }
+
       void get().persist();
     },
 
@@ -637,6 +654,18 @@ export const useResourceStore =
 
         questsClaimed:
           claimedQuestIds.length,
+
+        inventoryQuantities:
+          Object.fromEntries(
+            (
+              useGameStore.getState()
+                .gameState
+                ?.inventory ?? []
+            ).map((item) => [
+              item.id,
+              item.quantity,
+            ]),
+          ),
       };
     },
 

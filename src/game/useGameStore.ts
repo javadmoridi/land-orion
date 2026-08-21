@@ -15,6 +15,8 @@ import {
   savePlayerData,
 } from '../backend/supabaseService';
 
+import type { WarState } from '../types';
+
 import type { ConnectionStatus } from '../wallet/walletService';
 import { createWalletSession } from '../wallet/walletService';
 
@@ -143,6 +145,13 @@ function createFreshGameState(
     resources: {},
     currency: {},
     status: 'in-game',
+    war: {
+      currentLevel: 1,
+      highestLevel: 0,
+      wins: 0,
+      losses: 0,
+      totalRewardTokens: 0,
+    },
   };
 }
 
@@ -320,6 +329,14 @@ interface GameStoreState {
    */
   setPlayerProfile: (
     profile: PlayerProfile | null
+  ) => void;
+
+  /**
+   * Persists the Bot War progression into the game state and triggers a
+   * full game save (localStorage + Supabase).
+   */
+  setWarState: (
+    war: WarState
   ) => void;
 
   /**
@@ -682,6 +699,32 @@ export const useGameStore =
       },
 
       // ================================================================
+      // SET WAR STATE (BOT WAR PROGRESSION)
+      // ================================================================
+
+      setWarState: (war) => {
+        const currentState =
+          get().gameState;
+
+        if (!currentState) {
+          return;
+        }
+
+        set({
+          gameState: {
+            ...currentState,
+            war,
+          },
+        });
+
+        /*
+         * Persist immediately (localStorage + Supabase)
+         * so war progress is never lost.
+         */
+        void get().saveGame();
+      },
+
+      // ================================================================
       // LOAD GAME BY NAME
       // ================================================================
 
@@ -838,9 +881,14 @@ export const useGameStore =
          * by the player name (so progress is tied to the name), falling
          * back to the local player id.
          */
-        const saveKey =
-          wallet && playerProfile
+        const walletAddress =
+          typeof wallet === 'string'
             ? wallet
+            : (wallet?.address ?? null);
+
+        const saveKey =
+          walletAddress && playerProfile
+            ? walletAddress
             : localPlayer.username && localPlayer.username !== 'Local Player'
               ? `name-${localPlayer.username}`
               : localPlayer.id;
